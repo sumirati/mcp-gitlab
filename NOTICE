@@ -1,0 +1,32 @@
+GitLab MCP Server (MCP-gitlab)
+Copyright (c) 2026 sumirati@buggycode.net
+
+This product includes software and schemas developed by third parties:
+
+1. @modelcontextprotocol/server-gitlab
+   Copyright (c) 2024 Anthropic, PBC and GitLab, PBC
+   Licensed under the MIT License
+   https://github.com/modelcontextprotocol/servers-archived
+
+2. @modelcontextprotocol/sdk
+   Copyright (c) 2024-2025 Anthropic, PBC
+   Licensed under the MIT License
+   https://github.com/modelcontextprotocol/typescript-sdk
+
+3. zod
+   Copyright (c) 2020-present Colin McDonnell
+   Licensed under the MIT License
+   https://github.com/colinhacks/zod
+
+4. zod-to-json-schema
+   Copyright (c) Stefan Evertsson
+   Licensed under the MIT License
+   https://github.com/StefanTerdell/zod-to-json-schema
+
+5. GitLab REST API Specifications
+   GitLab REST API v4 contracts and endpoint conventions - GitLab, PBC
+   https://docs.gitlab.com/ee/api/rest/
+
+Community architectural patterns and workflows evaluated:
+- Vijay-Duke/mcp-gitlab (https://github.com/Vijay-Duke/mcp-gitlab)
+- zereight/gitlab-mcp (https://github.com/zereight/gitlab-mcp)
