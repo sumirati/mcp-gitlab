@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.sumirati/mcp-gitlab",
+  "title": "GitLab MCP Server",
+  "description": "Developer-ready Model Context Protocol (MCP) server for GitLab Community Edition and Enterprise Edition instances.",
+  "repository": {
+    "url": "https://github.com/sumirati/mcp-gitlab",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@sumirati/mcp-gitlab",
+      "version": "1.0.0"
+    }
+  ]
+}

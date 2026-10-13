@@ -74,8 +74,23 @@ node index.js
 
 ### Antigravity / Client Configuration
 
-Add to your `mcp_config.json`:
+Using `npx` (once published to npm):
+```json
+{
+  "mcpServers": {
+    "gitlab": {
+      "command": "npx",
+      "args": ["-y", "@sumirati/mcp-gitlab"],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "<your-gitlab-pat>",
+        "GITLAB_API_URL": "https://gitlab.example.com/api/v4"
+      }
+    }
+  }
+}
+```
 
+Or pointing to local checkout:
 ```json
 {
   "mcpServers": {
