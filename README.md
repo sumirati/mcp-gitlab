@@ -1,6 +1,11 @@
-# GitLab MCP Server (`MCP-gitlab`)
+# GitLab MCP Server (`@sumirati/mcp-gitlab`)
 
 A robust, developer-ready, and LLM-ergonomic Model Context Protocol (MCP) server for both self-hosted GitLab Community Edition (CE) and GitLab Enterprise Edition (EE).
+
+[![npm version](https://img.shields.io/npm/v/@sumirati/mcp-gitlab.svg)](https://www.npmjs.com/package/@sumirati/mcp-gitlab)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-sumirati%2Fmcp--gitlab-181717?logo=github)](https://github.com/sumirati/mcp-gitlab)
+[![GitLab](https://img.shields.io/badge/GitLab-sumirati%2Fmcp--gitlab-FC6D26?logo=gitlab)](https://gitlab.com/sumirati/mcp-gitlab)
 
 ---
 
@@ -41,40 +46,53 @@ A robust, developer-ready, and LLM-ergonomic Model Context Protocol (MCP) server
 
 ---
 
-## Getting Started
+## Quickstart & Installation
 
-### Prerequisites
-
-- Node.js >= 18.0.0
-- A GitLab Personal Access Token with `api` scope
-
-### Installation
+### Option 1: Run with `npx` (No installation needed)
 
 ```bash
-git clone <your-gitlab-url>/mcp-gitlab.git
-cd mcp-gitlab
-npm install
+npx -y @sumirati/mcp-gitlab
 ```
 
-### Environment Configuration
-
-Copy `.env.example` to `.env` or export variables in your environment:
-
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `GITLAB_PERSONAL_ACCESS_TOKEN` | **Required**. Personal access token with `api` scope. | — |
-| `GITLAB_API_URL` | Base API endpoint of your GitLab instance. | `https://gitlab.com/api/v4` |
+### Option 2: Install Globally
 
 ```bash
-# Example manual launch
-GITLAB_PERSONAL_ACCESS_TOKEN="glpat-..." \
-GITLAB_API_URL="https://gitlab.example.com/api/v4" \
+npm install -g @sumirati/mcp-gitlab
+mcp-gitlab
+```
+
+### Option 3: Local Clone
+
+```bash
+git clone https://github.com/sumirati/mcp-gitlab.git
+# Or from GitLab.com:
+# git clone https://gitlab.com/sumirati/mcp-gitlab.git
+
+cd mcp-gitlab
+npm install
 node index.js
 ```
 
-### Antigravity / Client Configuration
+---
 
-Using `npx` (once published to npm):
+## Environment Configuration
+
+Configure the following environment variables (or copy `.env.example` to `.env`):
+
+| Variable | Required | Default | Description |
+| :--- | :---: | :--- | :--- |
+| `GITLAB_PERSONAL_ACCESS_TOKEN` | **Yes** | — | Personal access token with `api` scope. |
+| `GITLAB_API_URL` | No | `https://gitlab.com/api/v4` | Base API URL of your GitLab CE/EE or cloud instance. |
+
+---
+
+## Client Configuration
+
+### Google Antigravity / Claude Desktop / Cursor
+
+Add to your MCP configuration file (`mcp_config.json` or `claude_desktop_config.json`):
+
+#### Using npm / npx:
 ```json
 {
   "mcpServers": {
@@ -82,7 +100,7 @@ Using `npx` (once published to npm):
       "command": "npx",
       "args": ["-y", "@sumirati/mcp-gitlab"],
       "env": {
-        "GITLAB_PERSONAL_ACCESS_TOKEN": "<your-gitlab-pat>",
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "<your-gitlab-token>",
         "GITLAB_API_URL": "https://gitlab.example.com/api/v4"
       }
     }
@@ -90,7 +108,7 @@ Using `npx` (once published to npm):
 }
 ```
 
-Or pointing to local checkout:
+#### Using local repository:
 ```json
 {
   "mcpServers": {
@@ -98,13 +116,82 @@ Or pointing to local checkout:
       "command": "node",
       "args": ["/path/to/MCP-gitlab/index.js"],
       "env": {
-        "GITLAB_PERSONAL_ACCESS_TOKEN": "<your-gitlab-pat>",
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "<your-gitlab-token>",
         "GITLAB_API_URL": "https://gitlab.example.com/api/v4"
       }
     }
   }
 }
 ```
+
+---
+
+## Complete Tools Reference
+
+The server exposes **39 tools** organized across key functional domains:
+
+### Repository & Files
+| Tool | Description |
+| :--- | :--- |
+| `search_repositories` | Search projects and repositories by query with pagination |
+| `create_repository` | Create a new GitLab project/repository |
+| `get_file_contents` | Read file or directory content from a repository |
+| `create_or_update_file` | Create or update a single file with commit message |
+| `push_files` | Commit multiple files in a single atomic commit |
+| `fork_repository` | Fork a project into a user or group namespace |
+| `create_branch` | Create a new branch from a commit, tag, or branch |
+
+### Issues & Notes
+| Tool | Description |
+| :--- | :--- |
+| `list_issues` | List and filter issues (state, milestone, labels, assignee) |
+| `get_issue` | Get details for an issue by project-scoped IID (`#<iid>`) |
+| `create_issue` | Create an issue with title, description, milestone, and labels |
+| `update_issue` | Update issue title, state, milestone, labels, or assignees |
+| `list_issue_notes` | List discussions, comments, and activity log on an issue |
+| `create_issue_note` | Post a comment or progress/verification note to an issue |
+| `list_issue_links` | List related, blocking, or blocked-by issue dependencies |
+| `create_issue_link` | Create an issue dependency (`relates_to`, `blocks`, `is_blocked_by`) |
+
+### Milestones & Labels
+| Tool | Description |
+| :--- | :--- |
+| `list_milestones` | List project milestones with start and due dates |
+| `get_milestone` | Get details for a milestone by numeric ID |
+| `create_milestone` | Create a project milestone with due dates |
+| `update_milestone` | Update milestone title, dates, description, or state |
+| `list_labels` | List labels available in the project |
+| `create_label` | Create a project label with color hex and description |
+
+### CI/CD Pipelines & Test Observability
+| Tool | Description |
+| :--- | :--- |
+| `list_pipelines` | List CI/CD pipelines filtered by branch, tag, status, or SHA |
+| `get_pipeline` | Get pipeline status, duration, and commit information |
+| `create_pipeline` | Trigger a new CI/CD pipeline execution for a branch/tag |
+| `list_pipeline_jobs` | List all jobs (build, test, deploy) and status in a pipeline |
+| `get_job_trace` | Inspect terminal output log of a job with safe `tail_lines` |
+| `get_pipeline_test_report` | Get JUnit test report summary (passed/failed suites, error traces) |
+
+### Releases & Tags
+| Tool | Description |
+| :--- | :--- |
+| `list_releases` | List published releases and changelogs |
+| `get_release` | Get release details by tag name |
+| `create_release` | Publish a formal release with tag, changelog, and milestones |
+| `list_tags` | List Git tags in the repository |
+| `create_tag` | Create a Git tag pointing to a branch or commit |
+
+### Merge Requests
+| Tool | Description |
+| :--- | :--- |
+| `list_merge_requests` | List merge requests filtered by state, branches, milestone, labels |
+| `get_merge_request` | Get merge request details and status by IID (`!<iid>`) |
+| `create_merge_request` | Create a merge request between branches |
+| `update_merge_request` | Update MR title, description, state, milestone, or labels |
+| `get_merge_request_changes` | Inspect code diffs and modified files in an MR |
+| `accept_merge_request` | Merge an approved MR with squash and branch cleanup flags |
+| `create_merge_request_note` | Post a review comment or note on a merge request |
 
 ---
 

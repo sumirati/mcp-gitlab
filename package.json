@@ -20,6 +20,10 @@
     "type": "git",
     "url": "https://github.com/sumirati/mcp-gitlab.git"
   },
+  "homepage": "https://github.com/sumirati/mcp-gitlab#readme",
+  "bugs": {
+    "url": "https://github.com/sumirati/mcp-gitlab/issues"
+  },
   "mcpName": "io.github.sumirati/mcp-gitlab",
   "keywords": [
     "mcp",
