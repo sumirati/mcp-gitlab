@@ -10,8 +10,8 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 const server = new Server(
   {
-    name: "gitlab-mcp-server",
-    version: "2.0.0",
+    name: "@sumirati/mcp-gitlab",
+    version: "1.0.1",
   },
   {
     capabilities: {
