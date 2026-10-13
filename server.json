@@ -12,7 +12,24 @@
     {
       "registryType": "npm",
       "identifier": "@sumirati/mcp-gitlab",
-      "version": "1.0.0"
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "GITLAB_PERSONAL_ACCESS_TOKEN",
+          "description": "GitLab Personal Access Token with api scope",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "GITLAB_API_URL",
+          "description": "GitLab instance API URL (defaults to https://gitlab.com/api/v4)",
+          "default": "https://gitlab.com/api/v4",
+          "isRequired": false
+        }
+      ]
     }
   ]
 }
