@@ -96,7 +96,27 @@ Verify the release on npm:
 
 ---
 
-### Step 5: Publish to Model Context Protocol Registry
+### Step 5: Create Formal Releases on GitHub and GitLab.com
+
+Once the `vX.Y.Z` tag is synced to both mirrors, publish formal releases with release notes on both platforms:
+
+#### A. GitHub Release
+1. Navigate to: [https://github.com/sumirati/mcp-gitlab/releases/new](https://github.com/sumirati/mcp-gitlab/releases/new)
+2. Under **Choose a tag**, select the existing tag: `vX.Y.Z`.
+3. Set **Release title**: `vX.Y.Z` (e.g., `v1.0.1`).
+4. Click **Generate release notes** (or paste your markdown changelog).
+5. Click **Publish release**.
+
+#### B. GitLab.com Release
+1. Navigate to: [https://gitlab.com/sumirati/mcp-gitlab/-/releases/new](https://gitlab.com/sumirati/mcp-gitlab/-/releases/new) (or **Deploy** $\rightarrow$ **Releases** $\rightarrow$ **New release**).
+2. Under **Tag name**, select the existing tag: `vX.Y.Z`.
+3. Set **Release title**: `vX.Y.Z`.
+4. Enter release notes and changelog in the **Release notes** markdown field.
+5. Click **Create release**.
+
+---
+
+### Step 6: Publish to Model Context Protocol Registry
 
 The MCP Registry indexes server metadata and requires active GitHub authentication to verify ownership of the `io.github.sumirati` namespace.
 
@@ -114,7 +134,7 @@ The MCP Registry indexes server metadata and requires active GitHub authenticati
 
 ---
 
-### Step 6: Verification
+### Step 7: Verification
 
 Verify the release across distribution channels:
 
