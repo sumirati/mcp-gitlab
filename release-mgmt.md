@@ -80,23 +80,7 @@ git push origin vX.Y.Z
 
 ---
 
-### Step 4: Publish to npm
-
-Publish the new version publicly to npm:
-
-```bash
-npm publish --access public
-```
-
-> [!TIP]
-> `npm publish` handles authentication automatically — if your session is expired or not authenticated, npm will initiate the browser login prompt inline.
-
-Verify the release on npm:
-- [https://www.npmjs.com/package/@sumirati/mcp-gitlab](https://www.npmjs.com/package/@sumirati/mcp-gitlab)
-
----
-
-### Step 5: Create Formal Releases on GitHub and GitLab.com
+### Step 4: Create Formal Releases on GitHub and GitLab.com
 
 Once the `vX.Y.Z` tag is synced to both mirrors, publish formal releases with release notes on both platforms:
 
@@ -113,6 +97,22 @@ Once the `vX.Y.Z` tag is synced to both mirrors, publish formal releases with re
 3. Set **Release title**: `vX.Y.Z`.
 4. Enter release notes and changelog in the **Release notes** markdown field.
 5. Click **Create release**.
+
+---
+
+### Step 5: Publish to npm
+
+Publish the new version publicly to npm:
+
+```bash
+npm publish --access public
+```
+
+> [!TIP]
+> `npm publish` handles authentication automatically — if your session is expired or not authenticated, npm will initiate the browser login prompt inline.
+
+Verify the release on npm:
+- [https://www.npmjs.com/package/@sumirati/mcp-gitlab](https://www.npmjs.com/package/@sumirati/mcp-gitlab)
 
 ---
 
