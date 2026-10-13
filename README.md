@@ -195,12 +195,12 @@ The server exposes **39 tools** organized across key functional domains:
 
 ---
 
-## Roadmap & Upstream Contributions
+## Roadmap
 
-- **Log Analysis & Diagnostics**: Upstream CI/CD failure diagnostics (`job_trace` with log tailing + `pipeline_test_report`) to community servers.
-- **Milestone & Dependency Management**: Add dedicated Milestone CRUD and `issue_links` for blocker management.
-- **GitLab CLI (`glab`)**: Propose adding issue link dependencies and milestone title resolution to `glab mcp serve`.
-- **Standalone Package**: Publish as an independent open-source package for developers seeking a drop-in GitLab MCP integration.
+- [ ] **Read-Only Mode (`GITLAB_READ_ONLY=true`)**: Safeguard enabling AI agents to read, query, and diagnose GitLab assets without permission to perform write operations, commits, or state changes.
+- [ ] **Inline Diff Reviews**: Add support for posting review comments directly to specific diff lines/positions on Merge Requests (`create_diff_discussion`).
+- [ ] **Project Wiki & Snippets Support**: Expand tooling to read and update GitLab project wikis and code snippets.
+- [ ] **Streamable HTTP Remote Transport**: Support running as a remote/hosted MCP service alongside the default local stdio transport.
 
 ---
 
