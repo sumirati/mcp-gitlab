@@ -8,67 +8,112 @@ import {
 import { z } from "zod";
 
 import { isReadOnly } from "./src/client.js";
-import { repositoryTools, repositoryHandlers } from "./src/tools/repositories.js";
-import { branchTools, branchHandlers } from "./src/tools/branches.js";
-import { memberTools, memberHandlers } from "./src/tools/members.js";
-import { variableTools, variableHandlers } from "./src/tools/variables.js";
-import { issueTools, issueHandlers } from "./src/tools/issues.js";
-import { milestoneTools, milestoneHandlers } from "./src/tools/milestones.js";
-import { pipelineTools, pipelineHandlers } from "./src/tools/pipelines.js";
-import { releaseTools, releaseHandlers } from "./src/tools/releases.js";
-import { mergeRequestTools, mergeRequestHandlers } from "./src/tools/merge-requests.js";
-import { wikiTools, wikiHandlers } from "./src/tools/wikis.js";
-import { snippetTools, snippetHandlers } from "./src/tools/snippets.js";
-import { userTools, userHandlers } from "./src/tools/user.js";
-import { commitTools, commitHandlers } from "./src/tools/commits.js";
+import { zodToJsonSchema } from "./src/schemas.js";
+import {
+  findActions,
+  executeAction,
+  getEagerTools,
+  getAllTools,
+  getCatalogSize,
+} from "./src/catalog.js";
 
-const DOMAIN_MODULES = {
-  repositories: { tools: repositoryTools, handlers: repositoryHandlers },
-  branches: { tools: branchTools, handlers: branchHandlers },
-  commits: { tools: commitTools, handlers: commitHandlers },
-  members: { tools: memberTools, handlers: memberHandlers },
-  variables: { tools: variableTools, handlers: variableHandlers },
-  issues: { tools: issueTools, handlers: issueHandlers },
-  milestones: { tools: milestoneTools, handlers: milestoneHandlers },
-  pipelines: { tools: pipelineTools, handlers: pipelineHandlers },
-  releases: { tools: releaseTools, handlers: releaseHandlers },
-  "merge-requests": { tools: mergeRequestTools, handlers: mergeRequestHandlers },
-  wikis: { tools: wikiTools, handlers: wikiHandlers },
-  snippets: { tools: snippetTools, handlers: snippetHandlers },
-  user: { tools: userTools, handlers: userHandlers },
-};
+const FindActionsSchema = z.object({
+  query: z
+    .string()
+    .optional()
+    .describe(
+      "Search keywords to find operations (e.g. 'merge request', 'pipeline', 'runner', 'mirror', 'release', 'branch', 'job trace')"
+    ),
+  domain: z
+    .enum([
+      "repositories",
+      "branches",
+      "commits",
+      "members",
+      "variables",
+      "issues",
+      "milestones",
+      "pipelines",
+      "releases",
+      "merge-requests",
+      "wikis",
+      "snippets",
+      "user",
+      "enterprise",
+    ])
+    .optional()
+    .describe("Optional domain to scope the search"),
+  page: z.number().optional().default(1).describe("Page number for paginated action results (default: 1)"),
+  per_page: z.number().optional().default(15).describe("Number of actions per page (default: 15)"),
+});
 
-const DOMAIN_ALIASES = {
-  mr: "merge-requests",
-  merge_requests: "merge-requests",
-  repos: "repositories",
-  ci: "pipelines",
-};
+const ExecuteActionSchema = z.object({
+  action: z
+    .string()
+    .describe(
+      "The exact GitLab action name to execute (e.g. 'create_merge_request', 'list_pipelines', 'trigger_push_mirror_sync')"
+    ),
+  parameters: z
+    .record(z.any())
+    .optional()
+    .default({})
+    .describe("Key-value parameters for the designated action (as discovered from gitlab_find_actions)"),
+});
 
-export function getActiveDomains() {
-  const envDomains = process.env.GITLAB_TOOL_DOMAINS;
-  if (!envDomains || envDomains.trim() === "" || envDomains.trim() === "*") {
-    return Object.keys(DOMAIN_MODULES);
-  }
-  const requested = envDomains
-    .split(",")
-    .map((d) => d.trim().toLowerCase())
-    .map((d) => DOMAIN_ALIASES[d] || d);
-  const active = requested.filter((d) => Boolean(DOMAIN_MODULES[d]));
-  return active.length > 0 ? active : Object.keys(DOMAIN_MODULES);
+const META_TOOLS = [
+  {
+    name: "gitlab_find_actions",
+    title: "Find GitLab Actions",
+    description:
+      "Search and discover available GitLab operations on-demand across the entire platform. Returns matching action names, purpose descriptions, and parameter schemas for use with 'gitlab_execute_action'. Keeps prompt context minimal (<500 tokens) while retaining 100% coverage.",
+    inputSchema: zodToJsonSchema(FindActionsSchema),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "gitlab_execute_action",
+    title: "Execute GitLab Action",
+    description:
+      "Execute any discovered GitLab platform action with input validation and token-optimized response projection. Dispatches directly to the corresponding API endpoint while enforcing read-only safety restrictions.",
+    inputSchema: zodToJsonSchema(ExecuteActionSchema),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+];
+
+function shouldExposeAllTools() {
+  return (
+    process.env.GITLAB_EXPOSE_ALL_TOOLS === "true" ||
+    process.env.GITLAB_EXPOSE_LEGACY_TOOLS === "true"
+  );
 }
 
-const activeDomains = getActiveDomains();
-const TOOLS = activeDomains.flatMap((d) => DOMAIN_MODULES[d].tools);
-const HANDLERS = Object.assign(
-  {},
-  ...activeDomains.map((d) => DOMAIN_MODULES[d].handlers)
-);
+function formatResult(result) {
+  if (result && Array.isArray(result.content)) {
+    return result;
+  }
+  return {
+    content: [
+      {
+        type: "text",
+        text: typeof result === "string" ? result : JSON.stringify(result, null, 2),
+      },
+    ],
+  };
+}
 
 const server = new Server(
   {
     name: "@sumirati/mcp-gitlab",
-    version: "2.1.0",
+    version: "3.0.0",
   },
   {
     capabilities: {
@@ -78,51 +123,40 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const availableTools = isReadOnly() ? TOOLS.filter((t) => !t.mutating) : TOOLS;
+  if (shouldExposeAllTools()) {
+    return { tools: getAllTools() };
+  }
+
+  // Modern 2026 5-Tool Hybrid Surface: 2 Meta Tools + 3 Eager Daily Drivers
+  const eagerTools = getEagerTools();
   return {
-    tools: availableTools.map(({ mutating, ...tool }) => ({
-      ...tool,
-      title:
-        tool.title ||
-        tool.name
-          .split("_")
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(" "),
-      annotations: {
-        readOnlyHint: !mutating,
-        destructiveHint: tool.name.startsWith("delete_") || tool.name.startsWith("remove_"),
-        idempotentHint: !mutating,
-        openWorldHint: false,
-        ...(tool.annotations || {}),
-      },
-    })),
+    tools: [...META_TOOLS, ...eagerTools],
   };
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
-  const toolDef = TOOLS.find((t) => t.name === name);
-  if (!toolDef) {
-    throw new Error(`Unknown tool: ${name}`);
-  }
-
-  if (isReadOnly() && toolDef.mutating) {
-    throw new Error(
-      `GitLab MCP server is running in read-only mode (GITLAB_READ_ONLY=true). Tool '${name}' is a mutating operation and cannot be executed.`
-    );
-  }
-
-  const handler = HANDLERS[name];
-  if (!handler) {
-    throw new Error(`Unknown tool handler: ${name}`);
-  }
 
   try {
-    return await handler(args || {});
+    if (name === "gitlab_find_actions") {
+      const parsed = FindActionsSchema.parse(args || {});
+      const result = findActions(parsed);
+      return formatResult(result);
+    }
+
+    if (name === "gitlab_execute_action") {
+      const parsed = ExecuteActionSchema.parse(args || {});
+      const result = await executeAction(parsed.action, parsed.parameters || {});
+      return formatResult(result);
+    }
+
+    // Direct invocation: handles eager tools AND graceful fallback if any catalog action is called directly
+    const result = await executeAction(name, args || {});
+    return formatResult(result);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(
-        `Invalid arguments: ${error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`
+        `Invalid arguments for '${name}': ${error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`
       );
     }
     throw error;
@@ -133,10 +167,10 @@ async function runServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   const modeStr = isReadOnly() ? " [READ-ONLY MODE: mutating tools disabled]" : "";
-  const domainFilterStr = process.env.GITLAB_TOOL_DOMAINS
-    ? ` [DOMAINS: ${activeDomains.join(",")}]`
-    : "";
-  console.error(`GitLab MCP Server v2.1.0 running on stdio (${TOOLS.length} tools registered)${modeStr}${domainFilterStr}`);
+  const legacyStr = shouldExposeAllTools() ? " [LEGACY MODE: all tools exposed]" : " [HYBRID 5-TOOL MODE]";
+  console.error(
+    `GitLab MCP Server v3.0.0 running on stdio (${getCatalogSize()} actions in catalog)${modeStr}${legacyStr}`
+  );
 }
 
 runServer().catch((error) => {
