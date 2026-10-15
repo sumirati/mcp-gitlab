@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isReadOnly } from "./client.js";
+import { projectOutput } from "./helpers.js";
 
 import { repositoryTools, repositoryHandlers } from "./tools/repositories.js";
 import { branchTools, branchHandlers } from "./tools/branches.js";
@@ -113,6 +114,24 @@ export function findActions({ query, domain, page = 1, per_page = 15 }) {
     entries = entries.filter((e) => e.domain === resolvedDomain);
   }
 
+  // If no filters were provided, return catalog domain breakdown
+  if (!query && !domain) {
+    const domainCounts = {};
+    for (const a of entries) {
+      domainCounts[a.domain] = (domainCounts[a.domain] || 0) + 1;
+    }
+    return {
+      message: `GitLab Action Catalog contains ${entries.length} actions across ${Object.keys(domainCounts).length} domains. Query by domain or search keyword to retrieve parameter schemas.`,
+      available_domains: domainCounts,
+      daily_driver_eager_tools: [
+        "get_file_contents (project_id, file_path, [ref])",
+        "get_project (project_id, [statistics])",
+        "get_commit (project_id, sha, [file_path], [max_diff_lines])",
+      ],
+      usage_hint: "Call gitlab_find_actions(query: 'merge request') or gitlab_find_actions(domain: 'pipelines') to inspect parameter signatures.",
+    };
+  }
+
   // Filter / rank by query
   if (query && query.trim() !== "") {
     const q = query.trim().toLowerCase();
@@ -176,8 +195,12 @@ export function findActions({ query, domain, page = 1, per_page = 15 }) {
 export async function executeAction(actionName, params = {}) {
   const entry = CATALOG.get(actionName);
   if (!entry) {
+    const available = Array.from(CATALOG.keys())
+      .filter((k) => k.includes(actionName) || actionName.includes(k.split("_")[0]))
+      .slice(0, 5);
+    const suggestion = available.length > 0 ? ` Did you mean: ${available.join(", ")}?` : "";
     throw new Error(
-      `Unknown GitLab action '${actionName}'. Call 'gitlab_find_actions' with a search query to discover available operations.`
+      `Unknown GitLab action '${actionName}'.${suggestion} Call 'gitlab_find_actions' with a search query to discover available operations.`
     );
   }
 
@@ -192,7 +215,9 @@ export async function executeAction(actionName, params = {}) {
   }
 
   try {
-    return await entry.handler(params || {});
+    const rawResult = await entry.handler(params || {});
+    const projected = projectOutput(rawResult);
+    return projected !== undefined ? projected : rawResult;
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(

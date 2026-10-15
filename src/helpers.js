@@ -293,4 +293,47 @@ export function summarizeHook(h) {
   };
 }
 
+/**
+ * Universal token compression filter that strips redundant metadata:
+ * avatar URLs, Gravatar IDs, internal API links, and null/empty fields.
+ * Preserves high-signal functional data (IDs, names, diffs, bodies, states, timestamps).
+ */
+export function projectOutput(val) {
+  if (val === null || val === undefined) return undefined;
+  if (typeof val !== "object") return val;
+
+  if (Array.isArray(val)) {
+    return val.map(projectOutput).filter((item) => item !== undefined);
+  }
+
+  const result = {};
+  for (const [k, v] of Object.entries(val)) {
+    if (
+      k === "_links" ||
+      k === "avatar_url" ||
+      k === "gravatar_id" ||
+      k === "node_id" ||
+      k === "site_admin" ||
+      k === "starred_url" ||
+      k === "subscriptions_url" ||
+      k === "organizations_url" ||
+      k === "repos_url" ||
+      k === "events_url" ||
+      k === "received_events_url" ||
+      k === "gists_url" ||
+      k === "following_url" ||
+      k === "followers_url"
+    ) {
+      continue;
+    }
+
+    const cleaned = projectOutput(v);
+    if (cleaned !== undefined && cleaned !== null && cleaned !== "") {
+      result[k] = cleaned;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 

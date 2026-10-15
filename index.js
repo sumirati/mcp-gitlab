@@ -56,8 +56,11 @@ const ExecuteActionSchema = z.object({
   parameters: z
     .record(z.any())
     .optional()
-    .default({})
     .describe("Key-value parameters for the designated action (as discovered from gitlab_find_actions)"),
+  params: z
+    .record(z.any())
+    .optional()
+    .describe("Alias for parameters (for cross-client compatibility)"),
 });
 
 const META_TOOLS = [
@@ -146,7 +149,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (name === "gitlab_execute_action") {
       const parsed = ExecuteActionSchema.parse(args || {});
-      const result = await executeAction(parsed.action, parsed.parameters || {});
+      const actionParams = parsed.parameters || parsed.params || {};
+      const result = await executeAction(parsed.action, actionParams);
       return formatResult(result);
     }
 
