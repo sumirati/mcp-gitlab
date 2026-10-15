@@ -48,10 +48,10 @@ export const CreateLabelSchema = ProjectParamsSchema.extend({
 export const milestoneTools = [
   { name: "list_milestones", description: "List project milestones (active, closed, all) with start and due dates", inputSchema: zodToJsonSchema(ListMilestonesSchema) },
   { name: "get_milestone", description: "Get details for a specific milestone by ID", inputSchema: zodToJsonSchema(GetMilestoneSchema) },
-  { name: "create_milestone", description: "Create a project milestone with due dates and roadmap scope", inputSchema: zodToJsonSchema(CreateMilestoneSchema) },
-  { name: "update_milestone", description: "Update milestone dates, title, description, or state (close/activate)", inputSchema: zodToJsonSchema(UpdateMilestoneSchema) },
+  { name: "create_milestone", description: "Create a project milestone with due dates and roadmap scope", inputSchema: zodToJsonSchema(CreateMilestoneSchema), mutating: true },
+  { name: "update_milestone", description: "Update milestone dates, title, description, or state (close/activate)", inputSchema: zodToJsonSchema(UpdateMilestoneSchema), mutating: true },
   { name: "list_labels", description: "List labels available in the project", inputSchema: zodToJsonSchema(ListLabelsSchema) },
-  { name: "create_label", description: "Create a project label with color and description", inputSchema: zodToJsonSchema(CreateLabelSchema) },
+  { name: "create_label", description: "Create a project label with color and description", inputSchema: zodToJsonSchema(CreateLabelSchema), mutating: true },
 ];
 
 // Handlers

@@ -26,7 +26,21 @@ export function formatLabels(labels) {
     .join(",");
 }
 
+export function isReadOnly() {
+  const val = process.env.GITLAB_READ_ONLY;
+  return val === "true" || val === "1" || val === "yes";
+}
+
 export async function gitlabRequest(endpoint, options = {}, responseType = "json") {
+  if (isReadOnly()) {
+    const method = (options.method || "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD") {
+      throw new Error(
+        `GitLab MCP server is running in read-only mode (GITLAB_READ_ONLY=true). HTTP ${method} requests are blocked.`
+      );
+    }
+  }
+
   const url = endpoint.startsWith("http") ? endpoint : `${GITLAB_API_URL}${endpoint}`;
   const headers = {
     Authorization: `Bearer ${GITLAB_PERSONAL_ACCESS_TOKEN}`,

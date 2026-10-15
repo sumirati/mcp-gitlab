@@ -37,9 +37,9 @@ export const CreateTagSchema = ProjectParamsSchema.extend({
 export const releaseTools = [
   { name: "list_releases", description: "List published project releases and version changelogs", inputSchema: zodToJsonSchema(ListReleasesSchema) },
   { name: "get_release", description: "Get release details by tag name", inputSchema: zodToJsonSchema(GetReleaseSchema) },
-  { name: "create_release", description: "Publish a formal release with tag, description/changelog, and associated milestones", inputSchema: zodToJsonSchema(CreateReleaseSchema) },
+  { name: "create_release", description: "Publish a formal release with tag, description/changelog, and associated milestones", inputSchema: zodToJsonSchema(CreateReleaseSchema), mutating: true },
   { name: "list_tags", description: "List git tags in the repository", inputSchema: zodToJsonSchema(ListTagsSchema) },
-  { name: "create_tag", description: "Create a git tag pointing to a branch or commit", inputSchema: zodToJsonSchema(CreateTagSchema) },
+  { name: "create_tag", description: "Create a git tag pointing to a branch or commit", inputSchema: zodToJsonSchema(CreateTagSchema), mutating: true },
 ];
 
 // Handlers

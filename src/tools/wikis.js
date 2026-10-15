@@ -109,8 +109,8 @@ export const UpdateWikiSchema = ProjectParamsSchema.extend({
 export const wikiTools = [
   { name: "list_wikis", description: "List all wiki pages in a GitLab project (slugs, titles, and formats)", inputSchema: zodToJsonSchema(ListWikisSchema) },
   { name: "get_wiki", description: "Get wiki page content, structured Table of Contents (toc_only), or a specific chapter/section by heading", inputSchema: zodToJsonSchema(GetWikiSchema) },
-  { name: "create_wiki", description: "Create a new wiki page in a GitLab project", inputSchema: zodToJsonSchema(CreateWikiSchema) },
-  { name: "update_wiki", description: "Update an existing wiki page's content or title in a GitLab project", inputSchema: zodToJsonSchema(UpdateWikiSchema) },
+  { name: "create_wiki", description: "Create a new wiki page in a GitLab project", inputSchema: zodToJsonSchema(CreateWikiSchema), mutating: true },
+  { name: "update_wiki", description: "Update an existing wiki page's content or title in a GitLab project", inputSchema: zodToJsonSchema(UpdateWikiSchema), mutating: true },
 ];
 
 // Handlers

@@ -85,6 +85,7 @@ MCP-gitlab/
 - **Context Token Economy**: Lean response payloads by default returning high-signal summaries instead of thousands of lines of raw GitLab API metadata.
 - **Smart Auto-Resolution**: Transparently resolves paths (e.g. `'group/project-name'` vs numeric `31`), milestone titles, and label strings/arrays.
 - **Self-Hosted & CE First**: Zero dependencies on GitLab Duo or enterprise licenses; connects over standard v4 REST using a Personal Access Token (PAT).
+- **3-Tier Read-Only Defense (`GITLAB_READ_ONLY=true`)**: Complete safety guarantee when allowing AI agents to diagnose codebases. Filters mutating tools from `ListTools` (saving thousands of context tokens), intercepts tool invocation at the schema layer, and blocks non-GET/HEAD HTTP methods in the network client.
 
 ---
 
@@ -125,6 +126,7 @@ Configure the following environment variables (or copy `.env.example` to `.env`)
 | :--- | :---: | :--- | :--- |
 | `GITLAB_PERSONAL_ACCESS_TOKEN` | **Yes** | — | Personal access token with `api` scope. |
 | `GITLAB_API_URL` | No | `https://gitlab.com/api/v4` | Base API URL of your GitLab CE/EE or cloud instance. |
+| `GITLAB_READ_ONLY` | No | `false` | Enable Read-Only safety mode (`true`, `1`, `yes`). Filters out mutating tools and strictly blocks write/modify HTTP requests. |
 
 ---
 
@@ -271,7 +273,7 @@ The server exposes **52 tools** organized across 10 functional domains:
 - [x] **Project Wiki & Snippets Support**: Full CRUD, Table of Contents outlines, and chapter slicing.
 - [x] **User & Identity Context**: Authenticated profile and group/project ownership discovery.
 - [x] **Commit History & Multi-File Diffs**: Commit logs and safe, token-capped diffs.
-- [ ] **Read-Only Mode (`GITLAB_READ_ONLY=true`)**: Safeguard enabling AI agents to read, query, and diagnose GitLab assets without permission to perform write operations, commits, or state changes.
+- [x] **Read-Only Mode (`GITLAB_READ_ONLY=true`)**: 3-tier safety guard enabling AI agents to query, read, and diagnose GitLab assets without permission or capability to perform write operations, commits, or state changes.
 - [ ] **Inline Diff Reviews**: Add support for posting review comments directly to specific diff lines/positions on Merge Requests (`create_diff_discussion`).
 - [ ] **Streamable HTTP Remote Transport**: Support running as a remote/hosted MCP service alongside the default local stdio transport.
 

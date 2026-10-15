@@ -66,11 +66,11 @@ export const CreateMergeRequestNoteSchema = ProjectParamsSchema.extend({
 export const mergeRequestTools = [
   { name: "list_merge_requests", description: "List merge requests filtered by state, branches, milestone, or labels", inputSchema: zodToJsonSchema(ListMergeRequestsSchema) },
   { name: "get_merge_request", description: "Get details and status of a merge request by IID (!<iid>)", inputSchema: zodToJsonSchema(GetMergeRequestSchema) },
-  { name: "create_merge_request", description: "Create a merge request between branches with description and options", inputSchema: zodToJsonSchema(CreateMergeRequestSchema) },
-  { name: "update_merge_request", description: "Update MR title, description, state (close/reopen), target branch, milestone, or labels", inputSchema: zodToJsonSchema(UpdateMergeRequestSchema) },
+  { name: "create_merge_request", description: "Create a merge request between branches with description and options", inputSchema: zodToJsonSchema(CreateMergeRequestSchema), mutating: true },
+  { name: "update_merge_request", description: "Update MR title, description, state (close/reopen), target branch, milestone, or labels", inputSchema: zodToJsonSchema(UpdateMergeRequestSchema), mutating: true },
   { name: "get_merge_request_changes", description: "Inspect code diffs and modified files in a merge request", inputSchema: zodToJsonSchema(GetMergeRequestChangesSchema) },
-  { name: "accept_merge_request", description: "Merge an approved merge request into the target branch", inputSchema: zodToJsonSchema(AcceptMergeRequestSchema) },
-  { name: "create_merge_request_note", description: "Post a review comment or note on a merge request", inputSchema: zodToJsonSchema(CreateMergeRequestNoteSchema) },
+  { name: "accept_merge_request", description: "Merge an approved merge request into the target branch", inputSchema: zodToJsonSchema(AcceptMergeRequestSchema), mutating: true },
+  { name: "create_merge_request_note", description: "Post a review comment or note on a merge request", inputSchema: zodToJsonSchema(CreateMergeRequestNoteSchema), mutating: true },
 ];
 
 // Handlers

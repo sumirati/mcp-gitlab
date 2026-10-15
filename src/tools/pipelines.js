@@ -58,7 +58,7 @@ export const GetPipelineTestReportSchema = ProjectParamsSchema.extend({
 export const pipelineTools = [
   { name: "list_pipelines", description: "List CI/CD pipelines filtered by branch, tag, status, or commit SHA", inputSchema: zodToJsonSchema(ListPipelinesSchema) },
   { name: "get_pipeline", description: "Get detailed status, duration, and commit info for a pipeline", inputSchema: zodToJsonSchema(GetPipelineSchema) },
-  { name: "create_pipeline", description: "Trigger a new CI/CD pipeline execution for a branch or tag", inputSchema: zodToJsonSchema(CreatePipelineSchema) },
+  { name: "create_pipeline", description: "Trigger a new CI/CD pipeline execution for a branch or tag", inputSchema: zodToJsonSchema(CreatePipelineSchema), mutating: true },
   { name: "list_pipeline_jobs", description: "List all jobs (build, test, lint, deploy) and their status in a pipeline", inputSchema: zodToJsonSchema(ListPipelineJobsSchema) },
   { name: "get_job_trace", description: "Get the terminal output log of a build/test job (supports tailing to diagnose test failures)", inputSchema: zodToJsonSchema(GetJobTraceSchema) },
   { name: "get_pipeline_test_report", description: "Get JUnit test report summary (total, passed, failed test suites and error details)", inputSchema: zodToJsonSchema(GetPipelineTestReportSchema) },

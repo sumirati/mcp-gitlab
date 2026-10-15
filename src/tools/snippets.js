@@ -36,8 +36,8 @@ export const UpdateSnippetSchema = ProjectParamsSchema.extend({
 export const snippetTools = [
   { name: "list_snippets", description: "List code snippets in a GitLab project with visibility and author details", inputSchema: zodToJsonSchema(ListSnippetsSchema) },
   { name: "get_snippet", description: "Get code snippet details and raw file content by snippet ID", inputSchema: zodToJsonSchema(GetSnippetSchema) },
-  { name: "create_snippet", description: "Create a new code snippet in a GitLab project", inputSchema: zodToJsonSchema(CreateSnippetSchema) },
-  { name: "update_snippet", description: "Update an existing code snippet's content, title, file name, or visibility", inputSchema: zodToJsonSchema(UpdateSnippetSchema) },
+  { name: "create_snippet", description: "Create a new code snippet in a GitLab project", inputSchema: zodToJsonSchema(CreateSnippetSchema), mutating: true },
+  { name: "update_snippet", description: "Update an existing code snippet's content, title, file name, or visibility", inputSchema: zodToJsonSchema(UpdateSnippetSchema), mutating: true },
 ];
 
 // Handlers

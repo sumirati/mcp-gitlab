@@ -77,12 +77,12 @@ export const CreateIssueLinkSchema = ProjectParamsSchema.extend({
 export const issueTools = [
   { name: "list_issues", description: "List and filter issues by state, milestone, label, assignee, or search with clean summaries", inputSchema: zodToJsonSchema(ListIssuesSchema) },
   { name: "get_issue", description: "Get comprehensive details for a specific issue by its IID (#<iid>)", inputSchema: zodToJsonSchema(GetIssueSchema) },
-  { name: "create_issue", description: "Create a new issue with milestone (by title or ID), labels, assignees, and due date", inputSchema: zodToJsonSchema(CreateIssueSchema) },
-  { name: "update_issue", description: "Update issue title, description, state (close/reopen), milestone, labels, or assignees", inputSchema: zodToJsonSchema(UpdateIssueSchema) },
+  { name: "create_issue", description: "Create a new issue with milestone (by title or ID), labels, assignees, and due date", inputSchema: zodToJsonSchema(CreateIssueSchema), mutating: true },
+  { name: "update_issue", description: "Update issue title, description, state (close/reopen), milestone, labels, or assignees", inputSchema: zodToJsonSchema(UpdateIssueSchema), mutating: true },
   { name: "list_issue_notes", description: "List discussions, comments, and activity log on an issue", inputSchema: zodToJsonSchema(ListIssueNotesSchema) },
-  { name: "create_issue_note", description: "Post a comment or progress/verification note to an issue", inputSchema: zodToJsonSchema(CreateIssueNoteSchema) },
+  { name: "create_issue_note", description: "Post a comment or progress/verification note to an issue", inputSchema: zodToJsonSchema(CreateIssueNoteSchema), mutating: true },
   { name: "list_issue_links", description: "List related, blocking, or blocked-by issue dependencies", inputSchema: zodToJsonSchema(ListIssueLinksSchema) },
-  { name: "create_issue_link", description: "Create an issue dependency link (relates_to, blocks, is_blocked_by)", inputSchema: zodToJsonSchema(CreateIssueLinkSchema) },
+  { name: "create_issue_link", description: "Create an issue dependency link (relates_to, blocks, is_blocked_by)", inputSchema: zodToJsonSchema(CreateIssueLinkSchema), mutating: true },
 ];
 
 // Handlers

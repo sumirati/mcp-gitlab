@@ -55,12 +55,12 @@ export const CreateBranchSchema = ProjectParamsSchema.extend({
 // Tool Definitions
 export const repositoryTools = [
   { name: "search_repositories", description: "Search for GitLab projects and repositories", inputSchema: zodToJsonSchema(SearchRepositoriesSchema) },
-  { name: "create_repository", description: "Create a new GitLab project/repository", inputSchema: zodToJsonSchema(CreateRepositorySchema) },
+  { name: "create_repository", description: "Create a new GitLab project/repository", inputSchema: zodToJsonSchema(CreateRepositorySchema), mutating: true },
   { name: "get_file_contents", description: "Read file or directory content from a project repository", inputSchema: zodToJsonSchema(GetFileContentsSchema) },
-  { name: "create_or_update_file", description: "Create or update a single file in a GitLab repository", inputSchema: zodToJsonSchema(CreateOrUpdateFileSchema) },
-  { name: "push_files", description: "Commit multiple files in a single atomic commit", inputSchema: zodToJsonSchema(PushFilesSchema) },
-  { name: "fork_repository", description: "Fork a project into a user or group namespace", inputSchema: zodToJsonSchema(ForkRepositorySchema) },
-  { name: "create_branch", description: "Create a new branch from a commit, tag, or branch", inputSchema: zodToJsonSchema(CreateBranchSchema) },
+  { name: "create_or_update_file", description: "Create or update a single file in a GitLab repository", inputSchema: zodToJsonSchema(CreateOrUpdateFileSchema), mutating: true },
+  { name: "push_files", description: "Commit multiple files in a single atomic commit", inputSchema: zodToJsonSchema(PushFilesSchema), mutating: true },
+  { name: "fork_repository", description: "Fork a project into a user or group namespace", inputSchema: zodToJsonSchema(ForkRepositorySchema), mutating: true },
+  { name: "create_branch", description: "Create a new branch from a commit, tag, or branch", inputSchema: zodToJsonSchema(CreateBranchSchema), mutating: true },
 ];
 
 // Handlers

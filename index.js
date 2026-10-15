@@ -7,6 +7,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
+import { isReadOnly } from "./src/client.js";
 import { repositoryTools, repositoryHandlers } from "./src/tools/repositories.js";
 import { issueTools, issueHandlers } from "./src/tools/issues.js";
 import { milestoneTools, milestoneHandlers } from "./src/tools/milestones.js";
@@ -57,14 +58,28 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return { tools: TOOLS };
+  const availableTools = isReadOnly() ? TOOLS.filter((t) => !t.mutating) : TOOLS;
+  return {
+    tools: availableTools.map(({ mutating, ...tool }) => tool),
+  };
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+  const toolDef = TOOLS.find((t) => t.name === name);
+  if (!toolDef) {
+    throw new Error(`Unknown tool: ${name}`);
+  }
+
+  if (isReadOnly() && toolDef.mutating) {
+    throw new Error(
+      `GitLab MCP server is running in read-only mode (GITLAB_READ_ONLY=true). Tool '${name}' is a mutating operation and cannot be executed.`
+    );
+  }
+
   const handler = HANDLERS[name];
   if (!handler) {
-    throw new Error(`Unknown tool: ${name}`);
+    throw new Error(`Unknown tool handler: ${name}`);
   }
 
   try {
@@ -82,7 +97,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function runServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("GitLab MCP Server running on stdio");
+  if (isReadOnly()) {
+    console.error("GitLab MCP Server running on stdio [READ-ONLY MODE: mutating tools disabled]");
+  } else {
+    console.error("GitLab MCP Server running on stdio");
+  }
 }
 
 runServer().catch((error) => {
