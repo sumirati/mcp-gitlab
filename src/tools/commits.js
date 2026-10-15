@@ -66,15 +66,16 @@ export const commitHandlers = {
     };
 
     if (parsed.with_diff) {
-      const rawDiffs = await gitlabRequest(`/projects/${pId}/repository/commits/${parsed.sha}/diff`);
-      const allFiles = (rawDiffs || []).map((d) => ({
+      const resDiffs = await gitlabRequest(`/projects/${pId}/repository/commits/${parsed.sha}/diff`);
+      const diffList = resDiffs.items || resDiffs || [];
+      const allFiles = diffList.map((d) => ({
         path: d.new_path,
         old_path: d.old_path !== d.new_path ? d.old_path : undefined,
         status: d.new_file ? "added" : d.deleted_file ? "deleted" : d.renamed_file ? "renamed" : "modified",
       }));
       result.files_changed = allFiles;
 
-      let filteredDiffs = rawDiffs || [];
+      let filteredDiffs = diffList;
       if (parsed.file_path) {
         filteredDiffs = filteredDiffs.filter(
           (d) => d.new_path === parsed.file_path || d.old_path === parsed.file_path
