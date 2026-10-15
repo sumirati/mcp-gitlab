@@ -5,7 +5,7 @@ export async function resolveMilestoneId(projectId, milestoneIdentifier) {
     return milestoneIdentifier;
   }
   const pId = formatProjectId(projectId);
-  const res = await gitlabRequest(`/projects/${pId}/milestones?search=${encodeURIComponent(milestoneIdentifier)}`);
+  const res = await gitlabRequest(`/projects/${pId}/milestones?include_ancestor_groups=true&search=${encodeURIComponent(milestoneIdentifier)}`);
   const list = res.items || res;
   const match = list.find((m) => m.title.toLowerCase() === milestoneIdentifier.toLowerCase()) || list[0];
   if (!match) {
@@ -224,4 +224,32 @@ export function summarizeVariable(v) {
     description: v.description || null,
   };
 }
+
+export async function resolveNamespaceId(namespace) {
+  if (typeof namespace === "number") return namespace;
+  const parsed = parseInt(namespace, 10);
+  if (!isNaN(parsed) && parsed.toString() === namespace.toString().trim()) {
+    return parsed;
+  }
+  const clean = namespace.trim();
+  // 1. Direct group lookup by path
+  try {
+    const group = await gitlabRequest(`/groups/${encodeURIComponent(clean)}`);
+    if (group && group.id) return group.id;
+  } catch {
+    // Fall back to search
+  }
+  // 2. Search group by query
+  try {
+    const groups = await gitlabRequest(`/groups?search=${encodeURIComponent(clean)}`);
+    const list = groups.items || groups;
+    const match = list.find((g) => g.full_path === clean || g.path === clean || g.name === clean);
+    if (match) return match.id;
+    if (list.length > 0) return list[0].id;
+  } catch {
+    // Ignore and proceed
+  }
+  throw new Error(`GitLab namespace/group '${namespace}' not found`);
+}
+
 

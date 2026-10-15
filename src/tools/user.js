@@ -22,6 +22,20 @@ export const ListMyGroupsSchema = z.object({
   per_page: z.number().optional().default(20),
 });
 
+export const GetGroupSchema = z.object({
+  group_id: z.union([z.string(), z.number()]).describe("Group numeric ID or full path (e.g. 'buggycode' or 3)"),
+  with_projects: z.boolean().optional().default(false).describe("Include project details in the group response"),
+});
+
+export const ListGroupProjectsSchema = z.object({
+  group_id: z.union([z.string(), z.number()]).describe("Group numeric ID or path (e.g. 'buggycode' or 3)"),
+  include_subgroups: z.boolean().optional().default(true).describe("Include projects in subgroups (default: true)"),
+  search: z.string().optional().describe("Search query within group projects"),
+  visibility: z.enum(["private", "internal", "public"]).optional().describe("Filter by project visibility"),
+  page: z.number().optional().default(1),
+  per_page: z.number().optional().default(20),
+});
+
 export const ListMyProjectsSchema = z.object({
   search: z.string().optional().describe("Search query to filter project names or descriptions"),
   owned: z.boolean().optional().describe("If true, limits to projects owned by the current user (e.g. personal namespace)"),
@@ -39,6 +53,8 @@ export const ListMyProjectsSchema = z.object({
 export const userTools = [
   { name: "get_current_user", description: "Get the profile and identity of the authenticated user (username, ID, name, email)", inputSchema: zodToJsonSchema(GetCurrentUserSchema) },
   { name: "list_my_groups", description: "List groups the authenticated user is a member or owner of", inputSchema: zodToJsonSchema(ListMyGroupsSchema) },
+  { name: "get_group", description: "Get comprehensive group details, metadata, visibility, and description by group ID or path", inputSchema: zodToJsonSchema(GetGroupSchema) },
+  { name: "list_group_projects", description: "List all projects and repositories belonging to a specific group or organization", inputSchema: zodToJsonSchema(ListGroupProjectsSchema) },
   { name: "list_my_projects", description: "List projects the authenticated user participates in, owns, or has starred", inputSchema: zodToJsonSchema(ListMyProjectsSchema) },
 ];
 
@@ -73,6 +89,30 @@ export const userHandlers = {
     const res = await gitlabRequest(`/groups?${q.toString()}`);
     const items = (res.items || res).map(summarizeGroup);
     return res.pagination ? { pagination: res.pagination, groups: items } : items;
+  },
+
+  get_group: async (args) => {
+    const parsed = GetGroupSchema.parse(args);
+    const gId = typeof parsed.group_id === "number" ? parsed.group_id : encodeURIComponent(parsed.group_id);
+    const q = parsed.with_projects ? "?with_projects=true" : "";
+    const res = await gitlabRequest(`/groups/${gId}${q}`);
+    return summarizeGroup(res);
+  },
+
+  list_group_projects: async (args) => {
+    const parsed = ListGroupProjectsSchema.parse(args);
+    const gId = typeof parsed.group_id === "number" ? parsed.group_id : encodeURIComponent(parsed.group_id);
+    const q = new URLSearchParams({
+      page: parsed.page.toString(),
+      per_page: parsed.per_page.toString(),
+    });
+    if (parsed.include_subgroups) q.append("include_subgroups", "true");
+    if (parsed.search) q.append("search", parsed.search);
+    if (parsed.visibility) q.append("visibility", parsed.visibility);
+
+    const res = await gitlabRequest(`/groups/${gId}/projects?${q.toString()}`);
+    const items = (res.items || res).map(summarizeProject);
+    return res.pagination ? { pagination: res.pagination, projects: items } : items;
   },
 
   list_my_projects: async (args) => {

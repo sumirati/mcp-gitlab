@@ -19,13 +19,14 @@ A robust, developer-ready, modular, and LLM-ergonomic Model Context Protocol (MC
 
 ### 1. Repository & Project Governance
 - **Full Project Lifecycle**: Create, inspect, update (name, description, default branch, visibility, topics), and safely delete repositories (with explicit safety confirmation).
+- **Group & Namespace Hierarchy**: Support for group namespaces (e.g. `buggycode/project-name`), automatic group name/path resolution (`resolveNamespaceId`), group project search, and group metadata inspection.
 - **Branch Management**: List branches with commit status, inspect branches, create branches, and delete stale feature branches (with default-branch deletion protection).
 - **Project Members & Permissions**: Add, list, inspect, and remove project collaborators with full role mapping (Guest, Reporter, Developer, Maintainer, Owner).
 - **Files & Batch Commits**: Read file/directory trees, update single files, or commit batches across multiple files atomically.
 
 ### 2. Task & Project Planning
 - **Full Issue Lifecycle**: CRUD operations, filtering by state, milestone, label, author, and assignee with clean summaries.
-- **Smart Milestone Management**: Full CRUD with automatic resolution of human-readable `milestone_title` to internal numeric IDs.
+- **Smart Milestone Management**: Full CRUD with automatic resolution of human-readable `milestone_title` to internal numeric IDs (including inherited group milestones).
 - **Task Dependencies (`issue_links`)**: First-class tracking of `blocks`, `is_blocked_by`, and `relates_to` relationships for AI roadmap planning and dependency graphs.
 - **Discussions & Progress Tracking (`issue_notes`)**: Post progress logs, test results, or design rationale directly to issues without modifying descriptions.
 
@@ -36,27 +37,27 @@ A robust, developer-ready, modular, and LLM-ergonomic Model Context Protocol (MC
 - **Artifacts Inspection (`get_job_artifact_file`)**: Read and inspect generated build artifacts, test summaries, and reports directly from job runs.
 - **JUnit Test Reports (`get_pipeline_test_report`)**: High-level test suite breakdowns (total, passed, failed, failure messages).
 
-### 4. Release & Version Delivery
-- **GitLab Releases API**: Create and inspect formal GitLab releases linked to Git tags, milestones, and markdown changelogs.
-- **Git Tags**: List and create semantic version tags (`vX.Y.Z`).
+### 4. Merge Request Code Reviews & Diff Discussions
+- **Token-Efficient Diff Inspection (`get_merge_request_changes`)**: Two-stage review (manifest first, diffs on demand), lockfile pruning (`package-lock.json`, `poetry.lock`), single-file diff filtering, and line truncation safeguards.
+- **Inline Code Review Discussions (`create_diff_discussion`)**: Post comments targeting specific lines in the diff with automatic SHA coordinate resolution (`head_sha`, `base_sha`, `start_sha`).
+- **Discussion Thread Replies (`reply_merge_request_discussion`)**: Enable contributors and reviewers to reply directly into active inline threads without requiring maintainer privileges.
+- **Discussion Notes Editing (`update_merge_request_discussion_note`)**: Update and refine review feedback inline.
+- **Resolution Lifecycle (`list_merge_request_discussions`, `resolve_merge_request_discussion`)**: Filter unresolved discussions to audit blocking feedback, and resolve threads upon verification.
+- **Full Merge Delivery (`accept_merge_request`)**: Merge approved MRs with squash and branch cleanup flags.
 
-### 5. Merge Request Review & Delivery
-- **Full MR Lifecycle**: Create, inspect, update, and accept/merge MRs with branch cleanup and squash options.
-- **Diff Reviews (`get_merge_request_changes`)**: Review code diffs and post review comments (`create_merge_request_note`).
-
-### 6. Wiki Documentation & Token Slicing
+### 5. Wiki Documentation & Token Slicing
 - **Token-Efficient Wiki Exploration**: Inspect page outlines using `toc_only: true` before loading large documentation pages.
 - **Targeted Section Extraction**: Jump directly to a topic using `section` or anchor notation (`page#topic`) to retrieve only the relevant lines.
 - **Full Wiki Authoring**: Separate, explicit `create_wiki` and `update_wiki` operations.
 
-### 7. Snippets & Code Templates
+### 6. Snippets & Code Templates
 - **Project Snippets**: Manage shared code snippets, configuration files, and script templates with `list_snippets`, `get_snippet`, `create_snippet`, and `update_snippet`.
 
-### 8. User & Identity Context
+### 7. User & Identity Context
 - **Current User Discovery (`get_current_user`)**: Check the authenticated identity, username, ID, and administrative privileges.
-- **Group & Project Membership (`list_my_groups`, `list_my_projects`)**: Discover all accessible groups and owned or contributed projects.
+- **Group & Project Membership (`list_my_groups`, `get_group`, `list_group_projects`, `list_my_projects`)**: Discover all accessible groups, group projects, and owned or contributed repositories.
 
-### 9. Git Commits & Diffs
+### 8. Git Commits & Diffs
 - **Commit History (`list_commits`)**: Query commit logs with author, date, and clean message summaries.
 - **Commit Inspection (`get_commit`)**: View file modification manifests and token-capped diffs with optional single-file filtering (`file_path`).
 
@@ -72,7 +73,7 @@ MCP-gitlab/
 ├── src/
 │   ├── client.js             # HTTP client with rate-limiting, auth, read-only guard & pagination
 │   ├── schemas.js            # Shared base schemas & Zod 4 JSON Schema converter
-│   ├── helpers.js            # Token-saving payload summarizers, role resolver & milestone helper
+│   ├── helpers.js            # Token-saving payload summarizers, namespace & milestone resolvers
 │   └── tools/                # 13 domain-specific tool implementations
 │       ├── repositories.js   # 9 repository & project management tools
 │       ├── branches.js       # 4 branch lifecycle tools
@@ -82,10 +83,10 @@ MCP-gitlab/
 │       ├── milestones.js     # 6 milestone & label tools
 │       ├── pipelines.js      # 8 pipeline, job, log & artifact tools
 │       ├── releases.js       # 5 release & tag tools
-│       ├── merge-requests.js # 7 merge request review & merge tools
+│       ├── merge-requests.js # 12 merge request review, diff & discussion tools
 │       ├── wikis.js          # 4 wiki tools with TOC & section slicing
 │       ├── snippets.js       # 4 snippet lifecycle tools
-│       ├── user.js           # 3 user, group & project context tools
+│       ├── user.js           # 5 user, group & project context tools
 │       └── commits.js        # 2 commit history & diff tools
 ```
 
@@ -183,14 +184,14 @@ Add to your MCP configuration file (`mcp_config.json` or `claude_desktop_config.
 
 ## Complete Tools Reference
 
-The server exposes **70 tools** organized across 13 functional domains (38 read-only, 32 mutating):
+The server exposes **77 tools** organized across 13 functional domains (41 read-only, 36 mutating):
 
 ### 1. Repository & Project Management (9 tools)
 | Tool | Description | Mutating? |
 | :--- | :--- | :---: |
-| `search_repositories` | Search projects and repositories by query with pagination | No |
+| `search_repositories` | Search projects and repositories by query with pagination (supports group filter) | No |
 | `get_project` | Get comprehensive project metadata, description, default branch, and statistics | No |
-| `create_repository` | Create a new GitLab project/repository | **Yes** |
+| `create_repository` | Create a new GitLab project/repository (supports groups/namespaces and empty repos) | **Yes** |
 | `update_project` | Update project metadata (description, name, default branch, visibility, topics) | **Yes** |
 | `delete_project` | Delete a project/repository (requires explicit name confirmation for safety) | **Yes** |
 | `get_file_contents` | Read file or directory content from a repository | No |
@@ -239,11 +240,11 @@ The server exposes **70 tools** organized across 13 functional domains (38 read-
 ### 6. Milestones & Labels (6 tools)
 | Tool | Description | Mutating? |
 | :--- | :--- | :---: |
-| `list_milestones` | List project milestones with start and due dates | No |
+| `list_milestones` | List project milestones with start and due dates (supports ancestor groups) | No |
 | `get_milestone` | Get details for a milestone by numeric ID | No |
 | `create_milestone` | Create a project milestone with due dates | **Yes** |
 | `update_milestone` | Update milestone title, dates, description, or state | **Yes** |
-| `list_labels` | List labels available in the project | No |
+| `list_labels` | List labels available in the project (supports ancestor groups) | No |
 | `create_label` | Create a project label with color hex and description | **Yes** |
 
 ### 7. CI/CD Pipelines, Jobs & Artifacts (8 tools)
@@ -267,16 +268,21 @@ The server exposes **70 tools** organized across 13 functional domains (38 read-
 | `list_tags` | List Git tags in the repository | No |
 | `create_tag` | Create a Git tag pointing to a branch or commit | **Yes** |
 
-### 9. Merge Requests (7 tools)
+### 9. Merge Requests & Code Reviews (12 tools)
 | Tool | Description | Mutating? |
 | :--- | :--- | :---: |
 | `list_merge_requests` | List merge requests filtered by state, branches, milestone, labels | No |
 | `get_merge_request` | Get merge request details and status by IID (`!<iid>`) | No |
 | `create_merge_request` | Create a merge request between branches | **Yes** |
 | `update_merge_request` | Update MR title, description, state, milestone, or labels | **Yes** |
-| `get_merge_request_changes` | Inspect code diffs and modified files in an MR | No |
+| `get_merge_request_changes` | Inspect code diffs in an MR (supports token-saving summary, file filtering, and lockfile pruning) | No |
+| `list_merge_request_discussions` | List inline code review discussions and threads on an MR (supports `unresolved_only` filter) | No |
+| `create_diff_discussion` | Post an inline code review comment on a specific line and file (resolves SHAs automatically) | **Yes** |
+| `reply_merge_request_discussion` | Post a reply comment into an existing MR code review discussion thread | **Yes** |
+| `update_merge_request_discussion_note` | Update or edit the text of an existing review comment in an MR discussion thread | **Yes** |
+| `resolve_merge_request_discussion` | Resolve or unresolve a code review discussion thread on an MR | **Yes** |
 | `accept_merge_request` | Merge an approved MR with squash and branch cleanup flags | **Yes** |
-| `create_merge_request_note` | Post a review comment or note on a merge request | **Yes** |
+| `create_merge_request_note` | Post a general review comment or note on a merge request | **Yes** |
 
 ### 10. Wiki Documentation (4 tools)
 | Tool | Description | Mutating? |
@@ -294,11 +300,13 @@ The server exposes **70 tools** organized across 13 functional domains (38 read-
 | `create_snippet` | Create a new code snippet with file name, description, and visibility | **Yes** |
 | `update_snippet` | Update an existing code snippet's title, file name, or content | **Yes** |
 
-### 12. User & Identity Context (3 tools)
+### 12. User & Identity Context (5 tools)
 | Tool | Description | Mutating? |
 | :--- | :--- | :---: |
 | `get_current_user` | Get authenticated user profile, username, ID, and admin status | No |
 | `list_my_groups` | List groups the authenticated user belongs to with access level | No |
+| `get_group` | Get comprehensive group details, metadata, visibility, and description by ID or path | No |
+| `list_group_projects` | List all projects and repositories belonging to a specific group or organization | No |
 | `list_my_projects` | List projects owned by or accessible to the current user | No |
 
 ### 13. Commits & Diffs (2 tools)
@@ -311,16 +319,42 @@ The server exposes **70 tools** organized across 13 functional domains (38 read-
 
 ## Roadmap
 
-- [x] **Project Wiki & Snippets Support**: Full CRUD, Table of Contents outlines, and chapter slicing.
-- [x] **User & Identity Context**: Authenticated profile and group/project ownership discovery.
-- [x] **Commit History & Multi-File Diffs**: Commit logs and safe, token-capped diffs.
-- [x] **Read-Only Mode (`GITLAB_READ_ONLY=true`)**: 3-tier safety guard enabling AI agents to query, read, and diagnose GitLab assets without permission or capability to perform write operations, commits, or state changes.
-- [x] **Repository & Branch Management**: Project update, safe deletion, and branch listing, inspection, and deletion.
-- [x] **Project Collaborators & Access Roles**: Add, list, inspect, update, and remove project members with role mapping.
-- [x] **CI/CD Project Variables**: Full CRUD for pipeline variables with protected, masked, and scoped environment configurations.
-- [x] **Job Details & Build Artifacts**: Inspect job metadata and read files from job build artifact archives.
-- [ ] **Inline Diff Reviews**: Add support for posting review comments directly to specific diff lines/positions on Merge Requests (`create_diff_discussion`).
-- [ ] **Streamable HTTP Remote Transport**: Support running as a remote/hosted MCP service alongside the default local stdio transport.
+### Delivered in v2.0.0
+- [x] **Modular Codebase Architecture**: Domain-driven layout under `src/tools/` (< 85-line `index.js`).
+- [x] **Context Token Economy**: Lean response summaries and Zod 4 JSON Schema engine.
+- [x] **3-Tier Read-Only Safety Mode (`GITLAB_READ_ONLY=true`)**: Tool list filtering, dispatch-layer blocking, and HTTP client method interception.
+- [x] **Project Wiki Documentation**: Full authoring, Table of Contents outline (`toc_only`), and chapter slicing.
+- [x] **Project Code Snippets**: Full lifecycle (`list`, `get`, `create`, `update`).
+- [x] **Branch Governance**: Complete branch management (`list`, `get`, `create`, `delete` with default-branch protection).
+- [x] **Project Members & Permissions**: Add, list, inspect, update, and remove collaborators with role name mapping.
+- [x] **CI/CD Project Variables**: Full lifecycle for pipeline variables with masked secret redaction.
+- [x] **CI/CD Observability & Artifacts**: Detailed job inspection and safe file reading from build artifact archives.
+- [x] **Inline MR Diff Reviews & Discussions**: Full 6-tool suite for authors, contributors, reviewers, and maintainers with automatic SHA coordinate resolution.
+- [x] **Group & Namespace Hierarchy**: Support for group namespaces, auto-resolving group paths, group search, and group-inherited milestones/labels.
+
+### Future Deliverables (Priority Backlog)
+
+#### Tier 2: DevOps & Platform Setup
+- [ ] **Protected Branch Access Rules**: Query and configure branch protection rules (`list_protected_branches`, `protect_branch`, `unprotect_branch`) to automate push/merge permissions.
+- [ ] **Container & Package Registry**: Inspect published Docker image tags and packages (npm, Maven, generic) hosted in GitLab's built-in registry (`list_registry_repositories`, `list_packages`).
+- [ ] **Deploy Keys & Deploy Tokens**: Manage read/write deploy tokens and deploy keys for automated CI/CD runners and external staging environments (`list_deploy_keys`, `create_deploy_token`).
+- [ ] **Issue Kanban Boards**: Query visual issue boards and list columns (`list_boards`, `list_board_lists`) for sprint and backlog tracking.
+
+#### Tier 3: Integrations & Administration
+- [ ] **Project Webhooks & Integrations**: List and configure project webhooks (`list_project_hooks`, `create_project_hook`) for event notifications.
+
+#### Transport & Deployment
+- [ ] **Streamable HTTP / SSE Remote Transport**: Support running as a remote/hosted MCP service alongside the default local stdio transport.
+
+---
+
+## Upcoming Sibling Project: `@sumirati/mcp-github`
+
+To enable seamless **cross-platform AI synchronization** across public edge repositories (GitHub.com, GitLab.com) and authoritative self-hosted GitLab masters, a dedicated sibling project **`@sumirati/mcp-github`** is planned. It will share the exact same architectural DNA as `@sumirati/mcp-gitlab`:
+- Lightweight, zero-dependency Node.js runtime (`npx @sumirati/mcp-github`).
+- Context token economy (manifest-first diff inspection, automatic lockfile filtering).
+- 3-Tier Read-Only safety mode (`GITHUB_READ_ONLY=true`).
+- Complete symmetry for PR diff discussions and GitHub Actions workflow log tailing.
 
 ---
 

@@ -2,11 +2,12 @@ import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
 import { gitlabRequest, formatProjectId } from "../client.js";
 import { ProjectParamsSchema } from "../schemas.js";
-import { summarizeProject } from "../helpers.js";
+import { summarizeProject, resolveNamespaceId } from "../helpers.js";
 
 // Schemas
 export const SearchRepositoriesSchema = z.object({
-  search: z.string().describe("Search query to filter project names/descriptions (e.g. 'my-service')"),
+  search: z.string().optional().describe("Search query to filter project names/descriptions (e.g. 'my-service')"),
+  group: z.union([z.string(), z.number()]).optional().describe("Optional group ID or path (e.g. 'buggycode' or 3) to filter repositories strictly within that group"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
   per_page: z.number().optional().default(20).describe("Number of results per page (default: 20, max: 100)"),
 });
@@ -16,10 +17,16 @@ export const GetProjectSchema = ProjectParamsSchema.extend({
 });
 
 export const CreateRepositorySchema = z.object({
-  name: z.string().describe("Repository / Project name (e.g. 'my-new-service')"),
+  name: z.string().describe("Repository / Project name (e.g. 'mcp-github' or 'my-new-service')"),
+  path: z.string().optional().describe("Repository path/slug (e.g. 'mcp-github'). Defaults to name if omitted."),
+  namespace: z
+    .union([z.string(), z.number()])
+    .optional()
+    .describe("Namespace / Group name, path, or ID (e.g. 'buggycode' or 3) to create the project in. If omitted, creates in personal namespace."),
   description: z.string().optional().describe("Short project description"),
   visibility: z.enum(["private", "internal", "public"]).optional().default("internal").describe("Visibility level"),
-  initialize_with_readme: z.boolean().optional().default(true).describe("Initialize the new project with a README.md file"),
+  initialize_with_readme: z.boolean().optional().default(false).describe("Initialize the new project with a README.md file (default: false for empty repos)"),
+  default_branch: z.string().optional().describe("Default branch name (e.g. 'main')"),
 });
 
 export const UpdateProjectSchema = ProjectParamsSchema.extend({
@@ -63,14 +70,19 @@ export const PushFilesSchema = ProjectParamsSchema.extend({
 });
 
 export const ForkRepositorySchema = ProjectParamsSchema.extend({
-  namespace: z.string().optional().describe("Target namespace path to fork into (defaults to your personal namespace)"),
+  namespace: z
+    .union([z.string(), z.number()])
+    .optional()
+    .describe("Target namespace name, path, or ID to fork into (defaults to your personal namespace)"),
+  name: z.string().optional().describe("New project name for the fork"),
+  path: z.string().optional().describe("New project path/slug for the fork"),
 });
 
 // Tool Definitions
 export const repositoryTools = [
-  { name: "search_repositories", description: "Search for GitLab projects and repositories", inputSchema: zodToJsonSchema(SearchRepositoriesSchema) },
+  { name: "search_repositories", description: "Search for GitLab projects and repositories (optionally filtered by group)", inputSchema: zodToJsonSchema(SearchRepositoriesSchema) },
   { name: "get_project", description: "Get comprehensive project metadata, description, default branch, and statistics", inputSchema: zodToJsonSchema(GetProjectSchema) },
-  { name: "create_repository", description: "Create a new GitLab project/repository", inputSchema: zodToJsonSchema(CreateRepositorySchema), mutating: true },
+  { name: "create_repository", description: "Create a new GitLab project/repository (supports groups/namespaces and empty repos)", inputSchema: zodToJsonSchema(CreateRepositorySchema), mutating: true },
   { name: "update_project", description: "Update project metadata (description, name, default branch, visibility, topics)", inputSchema: zodToJsonSchema(UpdateProjectSchema), mutating: true },
   { name: "delete_project", description: "Delete a project/repository (requires explicit name confirmation for safety)", inputSchema: zodToJsonSchema(DeleteProjectSchema), mutating: true },
   { name: "get_file_contents", description: "Read file or directory content from a project repository", inputSchema: zodToJsonSchema(GetFileContentsSchema) },
@@ -84,11 +96,18 @@ export const repositoryHandlers = {
   search_repositories: async (args) => {
     const parsed = SearchRepositoriesSchema.parse(args);
     const q = new URLSearchParams({
-      search: parsed.search,
       page: parsed.page.toString(),
       per_page: parsed.per_page.toString(),
     });
-    return await gitlabRequest(`/projects?${q.toString()}`);
+    if (parsed.search) q.append("search", parsed.search);
+
+    let endpoint = "/projects";
+    if (parsed.group !== undefined) {
+      const gId = typeof parsed.group === "number" ? parsed.group : encodeURIComponent(parsed.group);
+      endpoint = `/groups/${gId}/projects`;
+    }
+
+    return await gitlabRequest(`${endpoint}?${q.toString()}`);
   },
 
   get_project: async (args) => {
@@ -101,9 +120,22 @@ export const repositoryHandlers = {
 
   create_repository: async (args) => {
     const parsed = CreateRepositorySchema.parse(args);
+    const body = {
+      name: parsed.name,
+      ...(parsed.path ? { path: parsed.path } : {}),
+      ...(parsed.description !== undefined ? { description: parsed.description } : {}),
+      ...(parsed.visibility ? { visibility: parsed.visibility } : {}),
+      ...(parsed.initialize_with_readme !== undefined ? { initialize_with_readme: parsed.initialize_with_readme } : {}),
+      ...(parsed.default_branch ? { default_branch: parsed.default_branch } : {}),
+    };
+
+    if (parsed.namespace !== undefined) {
+      body.namespace_id = await resolveNamespaceId(parsed.namespace);
+    }
+
     return await gitlabRequest("/projects", {
       method: "POST",
-      body: JSON.stringify(parsed),
+      body: JSON.stringify(body),
     });
   },
 
@@ -220,7 +252,16 @@ export const repositoryHandlers = {
   fork_repository: async (args) => {
     const parsed = ForkRepositorySchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
-    const q = parsed.namespace ? `?namespace=${encodeURIComponent(parsed.namespace)}` : "";
-    return await gitlabRequest(`/projects/${pId}/fork${q}`, { method: "POST" });
+    const body = {};
+    if (parsed.namespace !== undefined) {
+      body.namespace_id = await resolveNamespaceId(parsed.namespace);
+    }
+    if (parsed.name) body.name = parsed.name;
+    if (parsed.path) body.path = parsed.path;
+
+    return await gitlabRequest(`/projects/${pId}/fork`, {
+      method: "POST",
+      body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
+    });
   },
 };

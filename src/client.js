@@ -10,7 +10,8 @@ export function formatProjectId(projectId) {
   if (typeof projectId === "number") {
     return projectId.toString();
   }
-  const str = projectId.toString().trim();
+  let str = projectId.toString().trim();
+  str = str.replace(/\.git$/, "");
   return str.includes("/") ? encodeURIComponent(str) : str;
 }
 

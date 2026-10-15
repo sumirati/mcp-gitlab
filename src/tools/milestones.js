@@ -8,6 +8,7 @@ import { ProjectParamsSchema } from "../schemas.js";
 export const ListMilestonesSchema = ProjectParamsSchema.extend({
   state: z.enum(["active", "closed", "all"]).optional().default("active").describe("Filter by state: active, closed, or all (default: active)"),
   search: z.string().optional().describe("Search query to filter milestones by title"),
+  include_ancestor_groups: z.boolean().optional().default(true).describe("Include milestones from ancestor groups (default: true)"),
   page: z.number().optional().default(1),
   per_page: z.number().optional().default(20),
 });
@@ -34,6 +35,7 @@ export const UpdateMilestoneSchema = ProjectParamsSchema.extend({
 
 export const ListLabelsSchema = ProjectParamsSchema.extend({
   search: z.string().optional().describe("Search query to filter labels"),
+  include_ancestor_groups: z.boolean().optional().default(true).describe("Include labels from ancestor groups (default: true)"),
   page: z.number().optional().default(1),
   per_page: z.number().optional().default(50),
 });
@@ -65,6 +67,7 @@ export const milestoneHandlers = {
       per_page: parsed.per_page.toString(),
     });
     if (parsed.search) q.append("search", parsed.search);
+    if (parsed.include_ancestor_groups) q.append("include_ancestor_groups", "true");
     const res = await gitlabRequest(`/projects/${pId}/milestones?${q.toString()}`);
     return (res.items || res).map(summarizeMilestone);
   },
@@ -117,6 +120,7 @@ export const milestoneHandlers = {
       per_page: parsed.per_page.toString(),
     });
     if (parsed.search) q.append("search", parsed.search);
+    if (parsed.include_ancestor_groups) q.append("include_ancestor_groups", "true");
     const res = await gitlabRequest(`/projects/${pId}/labels?${q.toString()}`);
     return res.items || res;
   },
