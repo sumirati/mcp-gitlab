@@ -150,3 +150,78 @@ export function summarizeSnippet(s) {
     raw_url: s.raw_url,
   };
 }
+
+export function summarizeBranch(b) {
+  return {
+    name: b.name,
+    default: b.default || false,
+    protected: b.protected || false,
+    merged: b.merged || false,
+    can_push: b.can_push,
+    commit: b.commit
+      ? {
+          id: b.commit.id,
+          short_id: b.commit.short_id,
+          title: b.commit.title,
+          authored_date: b.commit.authored_date,
+          author_name: b.commit.author_name,
+        }
+      : null,
+    web_url: b.web_url,
+  };
+}
+
+export const ACCESS_LEVELS = {
+  guest: 10,
+  reporter: 20,
+  developer: 30,
+  maintainer: 40,
+  owner: 50,
+};
+
+export function resolveAccessLevel(level) {
+  if (typeof level === "number") return level;
+  const key = level.toString().toLowerCase().trim();
+  if (ACCESS_LEVELS[key]) return ACCESS_LEVELS[key];
+  const parsed = parseInt(level, 10);
+  if (!isNaN(parsed)) return parsed;
+  throw new Error(`Invalid access_level '${level}'. Expected: guest (10), reporter (20), developer (30), maintainer (40), or owner (50).`);
+}
+
+export function formatAccessLevel(level) {
+  const map = {
+    10: "Guest",
+    20: "Reporter",
+    30: "Developer",
+    40: "Maintainer",
+    50: "Owner",
+  };
+  return map[level] ? `${map[level]} (${level})` : `Level ${level}`;
+}
+
+export function summarizeMember(m) {
+  return {
+    id: m.id,
+    username: m.username,
+    name: m.name,
+    state: m.state,
+    access_level: m.access_level,
+    role: formatAccessLevel(m.access_level),
+    expires_at: m.expires_at || null,
+    web_url: m.web_url,
+  };
+}
+
+export function summarizeVariable(v) {
+  return {
+    key: v.key,
+    value: v.masked ? "[MASKED]" : v.value,
+    variable_type: v.variable_type || "env_var",
+    protected: v.protected || false,
+    masked: v.masked || false,
+    raw: v.raw || false,
+    environment_scope: v.environment_scope || "*",
+    description: v.description || null,
+  };
+}
+

@@ -11,44 +11,52 @@ A robust, developer-ready, modular, and LLM-ergonomic Model Context Protocol (MC
 
 ## Mission
 
-`MCP-gitlab` provides high-signal, LLM-optimized access to GitLab instances. Rather than dumping raw API payloads, it focuses on context efficiency, developer ergonomics, and native AI pair-programming workflows for codebase management, task coordination, CI/CD observability, wiki documentation, and release delivery.
+`MCP-gitlab` provides high-signal, LLM-optimized access to GitLab instances. Rather than dumping raw API payloads, it focuses on context efficiency, developer ergonomics, and native AI pair-programming workflows for codebase management, task coordination, CI/CD observability, project governance, wiki documentation, and release delivery.
 
 ---
 
 ## Core Pillars & Capabilities
 
-### 1. Task & Project Planning
+### 1. Repository & Project Governance
+- **Full Project Lifecycle**: Create, inspect, update (name, description, default branch, visibility, topics), and safely delete repositories (with explicit safety confirmation).
+- **Branch Management**: List branches with commit status, inspect branches, create branches, and delete stale feature branches (with default-branch deletion protection).
+- **Project Members & Permissions**: Add, list, inspect, and remove project collaborators with full role mapping (Guest, Reporter, Developer, Maintainer, Owner).
+- **Files & Batch Commits**: Read file/directory trees, update single files, or commit batches across multiple files atomically.
+
+### 2. Task & Project Planning
 - **Full Issue Lifecycle**: CRUD operations, filtering by state, milestone, label, author, and assignee with clean summaries.
 - **Smart Milestone Management**: Full CRUD with automatic resolution of human-readable `milestone_title` to internal numeric IDs.
 - **Task Dependencies (`issue_links`)**: First-class tracking of `blocks`, `is_blocked_by`, and `relates_to` relationships for AI roadmap planning and dependency graphs.
 - **Discussions & Progress Tracking (`issue_notes`)**: Post progress logs, test results, or design rationale directly to issues without modifying descriptions.
 
-### 2. CI/CD & Test Observability
-- **Pipelines & Job Inspection**: Query pipelines by branch, commit SHA, or execution status (`running`, `failed`, `success`).
+### 3. CI/CD, Observability & Environment Variables
+- **CI/CD Project Variables**: Full lifecycle (create, list, inspect, update, delete) for pipeline variables (`env_var` and `file`) with protected, masked, and scoped environment configurations.
+- **Pipelines & Job Inspection**: Query pipelines by branch, commit SHA, or execution status (`running`, `failed`, `success`), and inspect detailed job metrics, durations, and runners.
 - **Safe Job Log Tailing (`get_job_trace`)**: Safely tail test/build logs (`tail_lines`) so agents can inspect stack traces directly without token overflow.
+- **Artifacts Inspection (`get_job_artifact_file`)**: Read and inspect generated build artifacts, test summaries, and reports directly from job runs.
 - **JUnit Test Reports (`get_pipeline_test_report`)**: High-level test suite breakdowns (total, passed, failed, failure messages).
 
-### 3. Release & Version Delivery
+### 4. Release & Version Delivery
 - **GitLab Releases API**: Create and inspect formal GitLab releases linked to Git tags, milestones, and markdown changelogs.
 - **Git Tags**: List and create semantic version tags (`vX.Y.Z`).
 
-### 4. Merge Request Review & Delivery
+### 5. Merge Request Review & Delivery
 - **Full MR Lifecycle**: Create, inspect, update, and accept/merge MRs with branch cleanup and squash options.
 - **Diff Reviews (`get_merge_request_changes`)**: Review code diffs and post review comments (`create_merge_request_note`).
 
-### 5. Wiki Documentation & Token Slicing
+### 6. Wiki Documentation & Token Slicing
 - **Token-Efficient Wiki Exploration**: Inspect page outlines using `toc_only: true` before loading large documentation pages.
 - **Targeted Section Extraction**: Jump directly to a topic using `section` or anchor notation (`page#topic`) to retrieve only the relevant lines.
 - **Full Wiki Authoring**: Separate, explicit `create_wiki` and `update_wiki` operations.
 
-### 6. Snippets & Code Templates
+### 7. Snippets & Code Templates
 - **Project Snippets**: Manage shared code snippets, configuration files, and script templates with `list_snippets`, `get_snippet`, `create_snippet`, and `update_snippet`.
 
-### 7. User & Identity Context
+### 8. User & Identity Context
 - **Current User Discovery (`get_current_user`)**: Check the authenticated identity, username, ID, and administrative privileges.
 - **Group & Project Membership (`list_my_groups`, `list_my_projects`)**: Discover all accessible groups and owned or contributed projects.
 
-### 8. Git Commits & Diffs
+### 9. Git Commits & Diffs
 - **Commit History (`list_commits`)**: Query commit logs with author, date, and clean message summaries.
 - **Commit Inspection (`get_commit`)**: View file modification manifests and token-capped diffs with optional single-file filtering (`file_path`).
 
@@ -60,16 +68,19 @@ The server is built with a modular, maintainable architecture under `src/`:
 
 ```
 MCP-gitlab/
-├── index.js                  # Lightweight entry point (< 70 lines)
+├── index.js                  # Lightweight entry point (< 85 lines)
 ├── src/
-│   ├── client.js             # HTTP client with rate-limiting, auth & pagination
+│   ├── client.js             # HTTP client with rate-limiting, auth, read-only guard & pagination
 │   ├── schemas.js            # Shared base schemas & Zod 4 JSON Schema converter
-│   ├── helpers.js            # Token-saving payload summarizers & milestone resolver
-│   └── tools/                # Domain-specific tool implementations
-│       ├── repositories.js   # 7 repository & file tools
+│   ├── helpers.js            # Token-saving payload summarizers, role resolver & milestone helper
+│   └── tools/                # 13 domain-specific tool implementations
+│       ├── repositories.js   # 9 repository & project management tools
+│       ├── branches.js       # 4 branch lifecycle tools
+│       ├── members.js        # 5 project member & role tools
+│       ├── variables.js      # 5 CI/CD project variable tools
 │       ├── issues.js         # 8 issue, note & link tools
 │       ├── milestones.js     # 6 milestone & label tools
-│       ├── pipelines.js      # 6 pipeline & job observability tools
+│       ├── pipelines.js      # 8 pipeline, job, log & artifact tools
 │       ├── releases.js       # 5 release & tag tools
 │       ├── merge-requests.js # 7 merge request review & merge tools
 │       ├── wikis.js          # 4 wiki tools with TOC & section slicing
@@ -83,9 +94,9 @@ MCP-gitlab/
 ## LLM-First Architectural Principles
 
 - **Context Token Economy**: Lean response payloads by default returning high-signal summaries instead of thousands of lines of raw GitLab API metadata.
-- **Smart Auto-Resolution**: Transparently resolves paths (e.g. `'group/project-name'` vs numeric `31`), milestone titles, and label strings/arrays.
+- **Smart Auto-Resolution**: Transparently resolves paths (e.g. `'group/project-name'` vs numeric `31`), milestone titles, user roles/access levels, and label strings/arrays.
 - **Self-Hosted & CE First**: Zero dependencies on GitLab Duo or enterprise licenses; connects over standard v4 REST using a Personal Access Token (PAT).
-- **3-Tier Read-Only Defense (`GITLAB_READ_ONLY=true`)**: Complete safety guarantee when allowing AI agents to diagnose codebases. Filters mutating tools from `ListTools` (saving thousands of context tokens), intercepts tool invocation at the schema layer, and blocks non-GET/HEAD HTTP methods in the network client.
+- **3-Tier Read-Only Defense (`GITLAB_READ_ONLY=true`)**: Complete safety guarantee when allowing AI agents to diagnose codebases. Filters mutating tools from `ListTools` (saving thousands of context tokens), intercepts tool invocation at the dispatch layer, and blocks non-GET/HEAD HTTP methods in the network client.
 
 ---
 
@@ -172,99 +183,129 @@ Add to your MCP configuration file (`mcp_config.json` or `claude_desktop_config.
 
 ## Complete Tools Reference
 
-The server exposes **52 tools** organized across 10 functional domains:
+The server exposes **70 tools** organized across 13 functional domains (38 read-only, 32 mutating):
 
-### 1. Repository & Files (7 tools)
-| Tool | Description |
-| :--- | :--- |
-| `search_repositories` | Search projects and repositories by query with pagination |
-| `create_repository` | Create a new GitLab project/repository |
-| `get_file_contents` | Read file or directory content from a repository |
-| `create_or_update_file` | Create or update a single file with commit message |
-| `push_files` | Commit multiple files in a single atomic commit |
-| `fork_repository` | Fork a project into a user or group namespace |
-| `create_branch` | Create a new branch from a commit, tag, or branch |
+### 1. Repository & Project Management (9 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `search_repositories` | Search projects and repositories by query with pagination | No |
+| `get_project` | Get comprehensive project metadata, description, default branch, and statistics | No |
+| `create_repository` | Create a new GitLab project/repository | **Yes** |
+| `update_project` | Update project metadata (description, name, default branch, visibility, topics) | **Yes** |
+| `delete_project` | Delete a project/repository (requires explicit name confirmation for safety) | **Yes** |
+| `get_file_contents` | Read file or directory content from a repository | No |
+| `create_or_update_file` | Create or update a single file with commit message | **Yes** |
+| `push_files` | Commit multiple files in a single atomic commit | **Yes** |
+| `fork_repository` | Fork a project into a user or group namespace | **Yes** |
 
-### 2. Issues & Notes (8 tools)
-| Tool | Description |
-| :--- | :--- |
-| `list_issues` | List and filter issues (state, milestone, labels, assignee) |
-| `get_issue` | Get details for an issue by project-scoped IID (`#<iid>`) |
-| `create_issue` | Create an issue with title, description, milestone, and labels |
-| `update_issue` | Update issue title, state, milestone, labels, or assignees |
-| `list_issue_notes` | List discussions, comments, and activity log on an issue |
-| `create_issue_note` | Post a comment or progress/verification note to an issue |
-| `list_issue_links` | List related, blocking, or blocked-by issue dependencies |
-| `create_issue_link` | Create an issue dependency (`relates_to`, `blocks`, `is_blocked_by`) |
+### 2. Branch Management (4 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_branches` | List repository branches with commit details, default flag, and protected status | No |
+| `get_branch` | Get specific branch details, commit SHA, and protection rules | No |
+| `create_branch` | Create a new branch from a commit, tag, or branch | **Yes** |
+| `delete_branch` | Delete a branch from a project repository (blocks default branch deletion) | **Yes** |
 
-### 3. Milestones & Labels (6 tools)
-| Tool | Description |
-| :--- | :--- |
-| `list_milestones` | List project milestones with start and due dates |
-| `get_milestone` | Get details for a milestone by numeric ID |
-| `create_milestone` | Create a project milestone with due dates |
-| `update_milestone` | Update milestone title, dates, description, or state |
-| `list_labels` | List labels available in the project |
-| `create_label` | Create a project label with color hex and description |
+### 3. Project Members & Permissions (5 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_project_members` | List project members and collaborators with access levels and roles | No |
+| `get_project_member` | Get details for a specific project member by user ID or username | No |
+| `add_project_member` | Add a user to a project with specified role/access level | **Yes** |
+| `update_project_member` | Update a project member's access level role or expiration date | **Yes** |
+| `remove_project_member` | Remove a user/collaborator from a project | **Yes** |
 
-### 4. CI/CD Pipelines & Test Observability (6 tools)
-| Tool | Description |
-| :--- | :--- |
-| `list_pipelines` | List CI/CD pipelines filtered by branch, tag, status, or SHA |
-| `get_pipeline` | Get pipeline status, duration, and commit information |
-| `create_pipeline` | Trigger a new CI/CD pipeline execution for a branch/tag |
-| `list_pipeline_jobs` | List all jobs (build, test, deploy) and status in a pipeline |
-| `get_job_trace` | Inspect terminal output log of a job with safe `tail_lines` |
-| `get_pipeline_test_report` | Get JUnit test report summary (passed/failed suites, error traces) |
+### 4. CI/CD Project Variables (5 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_project_variables` | List CI/CD project variables with keys, types, protected/masked flags | No |
+| `get_project_variable` | Get specific CI/CD variable details and value by key | No |
+| `create_project_variable` | Create a new CI/CD project variable (env_var or file) | **Yes** |
+| `update_project_variable` | Update an existing CI/CD project variable's value or configuration | **Yes** |
+| `delete_project_variable` | Delete a CI/CD project variable by key | **Yes** |
 
-### 5. Releases & Tags (5 tools)
-| Tool | Description |
-| :--- | :--- |
-| `list_releases` | List published releases and changelogs |
-| `get_release` | Get release details by tag name |
-| `create_release` | Publish a formal release with tag, changelog, and milestones |
-| `list_tags` | List Git tags in the repository |
-| `create_tag` | Create a Git tag pointing to a branch or commit |
+### 5. Issues & Notes (8 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_issues` | List and filter issues (state, milestone, labels, assignee) | No |
+| `get_issue` | Get details for an issue by project-scoped IID (`#<iid>`) | No |
+| `create_issue` | Create an issue with title, description, milestone, and labels | **Yes** |
+| `update_issue` | Update issue title, state, milestone, labels, or assignees | **Yes** |
+| `list_issue_notes` | List discussions, comments, and activity log on an issue | No |
+| `create_issue_note` | Post a comment or progress/verification note to an issue | **Yes** |
+| `list_issue_links` | List related, blocking, or blocked-by issue dependencies | No |
+| `create_issue_link` | Create an issue dependency (`relates_to`, `blocks`, `is_blocked_by`) | **Yes** |
 
-### 6. Merge Requests (7 tools)
-| Tool | Description |
-| :--- | :--- |
-| `list_merge_requests` | List merge requests filtered by state, branches, milestone, labels |
-| `get_merge_request` | Get merge request details and status by IID (`!<iid>`) |
-| `create_merge_request` | Create a merge request between branches |
-| `update_merge_request` | Update MR title, description, state, milestone, or labels |
-| `get_merge_request_changes` | Inspect code diffs and modified files in an MR |
-| `accept_merge_request` | Merge an approved MR with squash and branch cleanup flags |
-| `create_merge_request_note` | Post a review comment or note on a merge request |
+### 6. Milestones & Labels (6 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_milestones` | List project milestones with start and due dates | No |
+| `get_milestone` | Get details for a milestone by numeric ID | No |
+| `create_milestone` | Create a project milestone with due dates | **Yes** |
+| `update_milestone` | Update milestone title, dates, description, or state | **Yes** |
+| `list_labels` | List labels available in the project | No |
+| `create_label` | Create a project label with color hex and description | **Yes** |
 
-### 7. Wiki Documentation (4 tools)
-| Tool | Description |
-| :--- | :--- |
-| `list_wikis` | List all wiki pages in a GitLab project (slugs, titles, and formats) |
-| `get_wiki` | Get wiki page content with `toc_only` outline or `section` extraction |
-| `create_wiki` | Create a new wiki page with title, markdown content, and format |
-| `update_wiki` | Update an existing wiki page's title or markdown content |
+### 7. CI/CD Pipelines, Jobs & Artifacts (8 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_pipelines` | List CI/CD pipelines filtered by branch, tag, status, or SHA | No |
+| `get_pipeline` | Get pipeline status, duration, and commit information | No |
+| `create_pipeline` | Trigger a new CI/CD pipeline execution for a branch/tag | **Yes** |
+| `list_pipeline_jobs` | List all jobs (build, test, deploy) and status in a pipeline | No |
+| `get_job` | Get comprehensive details about a CI/CD job (duration, runner, artifacts) | No |
+| `get_job_trace` | Inspect terminal output log of a job with safe `tail_lines` | No |
+| `get_job_artifact_file` | Download and read a specific file from a job's build artifacts archive | No |
+| `get_pipeline_test_report` | Get JUnit test report summary (passed/failed suites, error traces) | No |
 
-### 8. Snippets & Templates (4 tools)
-| Tool | Description |
-| :--- | :--- |
-| `list_snippets` | List code snippets in a project with titles and visibility |
-| `get_snippet` | Get snippet details and full raw content |
-| `create_snippet` | Create a new code snippet with file name, description, and visibility |
-| `update_snippet` | Update an existing code snippet's title, file name, or content |
+### 8. Releases & Tags (5 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_releases` | List published releases and changelogs | No |
+| `get_release` | Get release details by tag name | No |
+| `create_release` | Publish a formal release with tag, changelog, and milestones | **Yes** |
+| `list_tags` | List Git tags in the repository | No |
+| `create_tag` | Create a Git tag pointing to a branch or commit | **Yes** |
 
-### 9. User & Identity Context (3 tools)
-| Tool | Description |
-| :--- | :--- |
-| `get_current_user` | Get authenticated user profile, username, ID, and admin status |
-| `list_my_groups` | List groups the authenticated user belongs to with access level |
-| `list_my_projects` | List projects owned by or accessible to the current user |
+### 9. Merge Requests (7 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_merge_requests` | List merge requests filtered by state, branches, milestone, labels | No |
+| `get_merge_request` | Get merge request details and status by IID (`!<iid>`) | No |
+| `create_merge_request` | Create a merge request between branches | **Yes** |
+| `update_merge_request` | Update MR title, description, state, milestone, or labels | **Yes** |
+| `get_merge_request_changes` | Inspect code diffs and modified files in an MR | No |
+| `accept_merge_request` | Merge an approved MR with squash and branch cleanup flags | **Yes** |
+| `create_merge_request_note` | Post a review comment or note on a merge request | **Yes** |
 
-### 10. Commits & Diffs (2 tools)
-| Tool | Description |
-| :--- | :--- |
-| `list_commits` | List repository commit logs filtered by branch/ref, path, or date |
-| `get_commit` | Get commit details with file manifest and token-capped diffs (`file_path` filter) |
+### 10. Wiki Documentation (4 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_wikis` | List all wiki pages in a GitLab project (slugs, titles, and formats) | No |
+| `get_wiki` | Get wiki page content with `toc_only` outline or `section` extraction | No |
+| `create_wiki` | Create a new wiki page with title, markdown content, and format | **Yes** |
+| `update_wiki` | Update an existing wiki page's title or markdown content | **Yes** |
+
+### 11. Snippets & Templates (4 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_snippets` | List code snippets in a project with titles and visibility | No |
+| `get_snippet` | Get snippet details and full raw content | No |
+| `create_snippet` | Create a new code snippet with file name, description, and visibility | **Yes** |
+| `update_snippet` | Update an existing code snippet's title, file name, or content | **Yes** |
+
+### 12. User & Identity Context (3 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `get_current_user` | Get authenticated user profile, username, ID, and admin status | No |
+| `list_my_groups` | List groups the authenticated user belongs to with access level | No |
+| `list_my_projects` | List projects owned by or accessible to the current user | No |
+
+### 13. Commits & Diffs (2 tools)
+| Tool | Description | Mutating? |
+| :--- | :--- | :---: |
+| `list_commits` | List repository commit logs filtered by branch/ref, path, or date | No |
+| `get_commit` | Get commit details with file manifest and token-capped diffs (`file_path` filter) | No |
 
 ---
 
@@ -274,6 +315,10 @@ The server exposes **52 tools** organized across 10 functional domains:
 - [x] **User & Identity Context**: Authenticated profile and group/project ownership discovery.
 - [x] **Commit History & Multi-File Diffs**: Commit logs and safe, token-capped diffs.
 - [x] **Read-Only Mode (`GITLAB_READ_ONLY=true`)**: 3-tier safety guard enabling AI agents to query, read, and diagnose GitLab assets without permission or capability to perform write operations, commits, or state changes.
+- [x] **Repository & Branch Management**: Project update, safe deletion, and branch listing, inspection, and deletion.
+- [x] **Project Collaborators & Access Roles**: Add, list, inspect, update, and remove project members with role mapping.
+- [x] **CI/CD Project Variables**: Full CRUD for pipeline variables with protected, masked, and scoped environment configurations.
+- [x] **Job Details & Build Artifacts**: Inspect job metadata and read files from job build artifact archives.
 - [ ] **Inline Diff Reviews**: Add support for posting review comments directly to specific diff lines/positions on Merge Requests (`create_diff_discussion`).
 - [ ] **Streamable HTTP Remote Transport**: Support running as a remote/hosted MCP service alongside the default local stdio transport.
 

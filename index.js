@@ -9,6 +9,9 @@ import { z } from "zod";
 
 import { isReadOnly } from "./src/client.js";
 import { repositoryTools, repositoryHandlers } from "./src/tools/repositories.js";
+import { branchTools, branchHandlers } from "./src/tools/branches.js";
+import { memberTools, memberHandlers } from "./src/tools/members.js";
+import { variableTools, variableHandlers } from "./src/tools/variables.js";
 import { issueTools, issueHandlers } from "./src/tools/issues.js";
 import { milestoneTools, milestoneHandlers } from "./src/tools/milestones.js";
 import { pipelineTools, pipelineHandlers } from "./src/tools/pipelines.js";
@@ -21,6 +24,9 @@ import { commitTools, commitHandlers } from "./src/tools/commits.js";
 
 const TOOLS = [
   ...repositoryTools,
+  ...branchTools,
+  ...memberTools,
+  ...variableTools,
   ...issueTools,
   ...milestoneTools,
   ...pipelineTools,
@@ -34,6 +40,9 @@ const TOOLS = [
 
 const HANDLERS = {
   ...repositoryHandlers,
+  ...branchHandlers,
+  ...memberHandlers,
+  ...variableHandlers,
   ...issueHandlers,
   ...milestoneHandlers,
   ...pipelineHandlers,

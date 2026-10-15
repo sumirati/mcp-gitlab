@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
 import { gitlabRequest, formatProjectId } from "../client.js";
 import { ProjectParamsSchema } from "../schemas.js";
+import { summarizeProject } from "../helpers.js";
 
 // Schemas
 export const SearchRepositoriesSchema = z.object({
@@ -10,11 +11,29 @@ export const SearchRepositoriesSchema = z.object({
   per_page: z.number().optional().default(20).describe("Number of results per page (default: 20, max: 100)"),
 });
 
+export const GetProjectSchema = ProjectParamsSchema.extend({
+  statistics: z.boolean().optional().default(false).describe("Include project repository and storage statistics"),
+});
+
 export const CreateRepositorySchema = z.object({
   name: z.string().describe("Repository / Project name (e.g. 'my-new-service')"),
   description: z.string().optional().describe("Short project description"),
   visibility: z.enum(["private", "internal", "public"]).optional().default("internal").describe("Visibility level"),
   initialize_with_readme: z.boolean().optional().default(true).describe("Initialize the new project with a README.md file"),
+});
+
+export const UpdateProjectSchema = ProjectParamsSchema.extend({
+  name: z.string().optional().describe("New project name"),
+  description: z.string().optional().describe("Updated project description"),
+  default_branch: z.string().optional().describe("New default branch (e.g. 'main')"),
+  visibility: z.enum(["private", "internal", "public"]).optional().describe("Updated visibility level"),
+  topics: z.array(z.string()).optional().describe("Array of project topic tags"),
+});
+
+export const DeleteProjectSchema = ProjectParamsSchema.extend({
+  confirm_project_name: z
+    .string()
+    .describe("Explicit safety confirmation: must match project name, path, or path_with_namespace to confirm deletion"),
 });
 
 export const GetFileContentsSchema = ProjectParamsSchema.extend({
@@ -47,20 +66,17 @@ export const ForkRepositorySchema = ProjectParamsSchema.extend({
   namespace: z.string().optional().describe("Target namespace path to fork into (defaults to your personal namespace)"),
 });
 
-export const CreateBranchSchema = ProjectParamsSchema.extend({
-  branch: z.string().describe("Name of the new branch to create (e.g. 'feature/upgrade-java')"),
-  ref: z.string().optional().default("HEAD").describe("Source branch, tag, or commit SHA to branch from (default: HEAD)"),
-});
-
 // Tool Definitions
 export const repositoryTools = [
   { name: "search_repositories", description: "Search for GitLab projects and repositories", inputSchema: zodToJsonSchema(SearchRepositoriesSchema) },
+  { name: "get_project", description: "Get comprehensive project metadata, description, default branch, and statistics", inputSchema: zodToJsonSchema(GetProjectSchema) },
   { name: "create_repository", description: "Create a new GitLab project/repository", inputSchema: zodToJsonSchema(CreateRepositorySchema), mutating: true },
+  { name: "update_project", description: "Update project metadata (description, name, default branch, visibility, topics)", inputSchema: zodToJsonSchema(UpdateProjectSchema), mutating: true },
+  { name: "delete_project", description: "Delete a project/repository (requires explicit name confirmation for safety)", inputSchema: zodToJsonSchema(DeleteProjectSchema), mutating: true },
   { name: "get_file_contents", description: "Read file or directory content from a project repository", inputSchema: zodToJsonSchema(GetFileContentsSchema) },
   { name: "create_or_update_file", description: "Create or update a single file in a GitLab repository", inputSchema: zodToJsonSchema(CreateOrUpdateFileSchema), mutating: true },
   { name: "push_files", description: "Commit multiple files in a single atomic commit", inputSchema: zodToJsonSchema(PushFilesSchema), mutating: true },
   { name: "fork_repository", description: "Fork a project into a user or group namespace", inputSchema: zodToJsonSchema(ForkRepositorySchema), mutating: true },
-  { name: "create_branch", description: "Create a new branch from a commit, tag, or branch", inputSchema: zodToJsonSchema(CreateBranchSchema), mutating: true },
 ];
 
 // Handlers
@@ -75,11 +91,59 @@ export const repositoryHandlers = {
     return await gitlabRequest(`/projects?${q.toString()}`);
   },
 
+  get_project: async (args) => {
+    const parsed = GetProjectSchema.parse(args);
+    const pId = formatProjectId(parsed.project_id);
+    const q = parsed.statistics ? "?statistics=true" : "";
+    const res = await gitlabRequest(`/projects/${pId}${q}`);
+    return summarizeProject(res);
+  },
+
   create_repository: async (args) => {
     const parsed = CreateRepositorySchema.parse(args);
     return await gitlabRequest("/projects", {
       method: "POST",
       body: JSON.stringify(parsed),
+    });
+  },
+
+  update_project: async (args) => {
+    const parsed = UpdateProjectSchema.parse(args);
+    const pId = formatProjectId(parsed.project_id);
+    const body = {};
+    if (parsed.name) body.name = parsed.name;
+    if (parsed.description !== undefined) body.description = parsed.description;
+    if (parsed.default_branch) body.default_branch = parsed.default_branch;
+    if (parsed.visibility) body.visibility = parsed.visibility;
+    if (parsed.topics) body.topics = parsed.topics.join(",");
+
+    const res = await gitlabRequest(`/projects/${pId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+    return summarizeProject(res);
+  },
+
+  delete_project: async (args) => {
+    const parsed = DeleteProjectSchema.parse(args);
+    const pId = formatProjectId(parsed.project_id);
+
+    // Safety guard: fetch project first to verify confirmation name matches
+    const proj = await gitlabRequest(`/projects/${pId}`);
+    const conf = parsed.confirm_project_name.trim().toLowerCase();
+    const matches =
+      (proj.name && proj.name.toLowerCase() === conf) ||
+      (proj.path && proj.path.toLowerCase() === conf) ||
+      (proj.path_with_namespace && proj.path_with_namespace.toLowerCase() === conf);
+
+    if (!matches) {
+      throw new Error(
+        `Project deletion aborted: confirm_project_name '${parsed.confirm_project_name}' does not match project '${proj.path_with_namespace}' or '${proj.name}'.`
+      );
+    }
+
+    return await gitlabRequest(`/projects/${pId}`, {
+      method: "DELETE",
     });
   },
 
@@ -89,8 +153,8 @@ export const repositoryHandlers = {
     const encodedPath = encodeURIComponent(parsed.file_path);
     const ref = parsed.ref ? `?ref=${encodeURIComponent(parsed.ref)}` : "?ref=HEAD";
     const res = await gitlabRequest(`/projects/${pId}/repository/files/${encodedPath}${ref}`);
-    if (res && !Array.isArray(res) && res.content) {
-      res.content = Buffer.from(res.content, "base64").toString("utf8");
+    if (res.content && res.encoding === "base64") {
+      res.decoded_content = Buffer.from(res.content, "base64").toString("utf-8");
     }
     return res;
   },
@@ -125,16 +189,30 @@ export const repositoryHandlers = {
   push_files: async (args) => {
     const parsed = PushFilesSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
+    const actions = await Promise.all(
+      parsed.files.map(async (file) => {
+        const encodedPath = encodeURIComponent(file.file_path);
+        let action = "create";
+        try {
+          await gitlabRequest(`/projects/${pId}/repository/files/${encodedPath}?ref=${encodeURIComponent(parsed.branch)}`);
+          action = "update";
+        } catch {
+          // File does not exist, keep action as create
+        }
+        return {
+          action,
+          file_path: file.file_path,
+          content: file.content,
+        };
+      })
+    );
+
     return await gitlabRequest(`/projects/${pId}/repository/commits`, {
       method: "POST",
       body: JSON.stringify({
         branch: parsed.branch,
         commit_message: parsed.commit_message,
-        actions: parsed.files.map((f) => ({
-          action: "create",
-          file_path: f.file_path,
-          content: f.content,
-        })),
+        actions,
       }),
     });
   },
@@ -144,17 +222,5 @@ export const repositoryHandlers = {
     const pId = formatProjectId(parsed.project_id);
     const q = parsed.namespace ? `?namespace=${encodeURIComponent(parsed.namespace)}` : "";
     return await gitlabRequest(`/projects/${pId}/fork${q}`, { method: "POST" });
-  },
-
-  create_branch: async (args) => {
-    const parsed = CreateBranchSchema.parse(args);
-    const pId = formatProjectId(parsed.project_id);
-    return await gitlabRequest(`/projects/${pId}/repository/branches`, {
-      method: "POST",
-      body: JSON.stringify({
-        branch: parsed.branch,
-        ref: parsed.ref,
-      }),
-    });
   },
 };
