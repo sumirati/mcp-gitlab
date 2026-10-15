@@ -67,14 +67,55 @@ export const GetPipelineTestReportSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const pipelineTools = [
-  { name: "list_pipelines", description: "List CI/CD pipelines filtered by branch, tag, status, or commit SHA", inputSchema: zodToJsonSchema(ListPipelinesSchema) },
-  { name: "get_pipeline", description: "Get detailed status, duration, and commit info for a pipeline", inputSchema: zodToJsonSchema(GetPipelineSchema) },
-  { name: "create_pipeline", description: "Trigger a new CI/CD pipeline execution for a branch or tag", inputSchema: zodToJsonSchema(CreatePipelineSchema), mutating: true },
-  { name: "list_pipeline_jobs", description: "List all jobs (build, test, lint, deploy) and their status in a pipeline", inputSchema: zodToJsonSchema(ListPipelineJobsSchema) },
-  { name: "get_job", description: "Get comprehensive details about a CI/CD job (duration, runner, failure reason, artifacts list)", inputSchema: zodToJsonSchema(GetJobSchema) },
-  { name: "get_job_trace", description: "Get the terminal output log of a build/test job (supports tailing to diagnose test failures)", inputSchema: zodToJsonSchema(GetJobTraceSchema) },
-  { name: "get_job_artifact_file", description: "Download and read a specific file from a job's build artifacts archive", inputSchema: zodToJsonSchema(GetJobArtifactFileSchema) },
-  { name: "get_pipeline_test_report", description: "Get JUnit test report summary (total, passed, failed test suites and error details)", inputSchema: zodToJsonSchema(GetPipelineTestReportSchema) },
+  {
+    name: "list_pipelines",
+    title: "List CI/CD Pipelines",
+    description: "List CI/CD pipelines filtered by branch, tag, status ('running', 'success', 'failed', 'canceled'), or commit SHA with token-efficient status summaries. Use to check deployment status, monitor test suite health, or verify build triggers. Do NOT use to inspect specific job logs; use 'get_job_trace' instead.",
+    inputSchema: zodToJsonSchema(ListPipelinesSchema),
+  },
+  {
+    name: "get_pipeline",
+    title: "Get Pipeline Details",
+    description: "Retrieve comprehensive details for a specific CI/CD pipeline by numeric ID, including execution status, duration, queued duration, and associated commit info. Use to evaluate pipeline health or check if all stages completed. Do NOT use to inspect individual job failures; use 'list_pipeline_jobs' or 'get_job_trace' instead.",
+    inputSchema: zodToJsonSchema(GetPipelineSchema),
+  },
+  {
+    name: "create_pipeline",
+    title: "Trigger CI/CD Pipeline",
+    description: "Manually trigger and run a new CI/CD pipeline execution for a specific branch or tag with optional custom pipeline variables. Use to kick off tests, builds, or deployments on demand. Side effect: initiates immediate job execution on GitLab runners. Do NOT use to inspect running jobs; use 'list_pipeline_jobs' instead.",
+    inputSchema: zodToJsonSchema(CreatePipelineSchema),
+    mutating: true,
+  },
+  {
+    name: "list_pipeline_jobs",
+    title: "List Pipeline Jobs",
+    description: "List all execution jobs (build, test, lint, deploy) and their current status within a specific pipeline. Use to identify which specific stage or job failed in a pipeline run. Do NOT use to download job output logs; use 'get_job_trace' instead once the failed job ID is known.",
+    inputSchema: zodToJsonSchema(ListPipelineJobsSchema),
+  },
+  {
+    name: "get_job",
+    title: "Get Job Details",
+    description: "Retrieve comprehensive details about a specific CI/CD job, including duration, runner tags, failure reasons, and available artifact archives. Use when diagnosing why a runner job stalled or failed. Do NOT use to stream terminal logs; use 'get_job_trace' instead.",
+    inputSchema: zodToJsonSchema(GetJobSchema),
+  },
+  {
+    name: "get_job_trace",
+    title: "Get Job Terminal Trace Log",
+    description: "Retrieve the raw terminal console output log for a specific CI/CD job with configurable tailing (tail_lines). Use to inspect compilation errors, stack traces, and test assertion failures without overflowing context. Do NOT use to inspect structured JUnit test suites; use 'get_pipeline_test_report' instead.",
+    inputSchema: zodToJsonSchema(GetJobTraceSchema),
+  },
+  {
+    name: "get_job_artifact_file",
+    title: "Get Job Artifact File",
+    description: "Download and read the text content of a specific file from a completed job's build artifacts zip archive (e.g. coverage reports, build manifests, test outputs). Use to inspect generated artifacts without downloading the full archive. Do NOT use for repository files; use 'get_file_contents' instead.",
+    inputSchema: zodToJsonSchema(GetJobArtifactFileSchema),
+  },
+  {
+    name: "get_pipeline_test_report",
+    title: "Get Pipeline Test Report",
+    description: "Retrieve the structured JUnit test summary report for a pipeline run, including total test counts, passed/failed test cases, execution duration, and failure stack traces. Use to diagnose automated test failures across test suites. Do NOT use for raw console output; use 'get_job_trace' instead.",
+    inputSchema: zodToJsonSchema(GetPipelineTestReportSchema),
+  },
 ];
 
 // Handlers

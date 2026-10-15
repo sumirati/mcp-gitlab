@@ -139,6 +139,17 @@ Configure the following environment variables (or copy `.env.example` to `.env`)
 | `GITLAB_PERSONAL_ACCESS_TOKEN` | **Yes** | — | Personal access token with `api` scope. |
 | `GITLAB_API_URL` | No | `https://gitlab.com/api/v4` | Base API URL of your GitLab CE/EE or cloud instance. |
 | `GITLAB_READ_ONLY` | No | `false` | Enable Read-Only safety mode (`true`, `1`, `yes`). Filters out mutating tools and strictly blocks write/modify HTTP requests. |
+| `GITLAB_TOOL_DOMAINS` | No | `*` (all) | Comma-separated domain whitelist to restrict registered tools and preserve context window tokens (e.g. `'repositories,merge-requests,issues'`). Aliases supported: `mr`, `repos`, `ci`. |
+
+---
+
+## Tool Definition Quality Score (TDQS) & Tier A Compliance
+
+All 77 tools adhere to the **[Tool Definition Quality Score (TDQS)](https://github.com/glama-ai/tool-definition-quality-score)** open framework:
+- **Purpose Clarity**: Front-loaded active verbs and unambiguous resource targeting.
+- **Usage Guidelines**: Explicit *when to use*, *when NOT to use*, and named alternative recommendations on every definition to eliminate agent tool mis-selection.
+- **Behavioral Transparency**: Native MCP standard annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) and explicit side-effect disclosures.
+- **System Prompt Economy**: Use `GITLAB_TOOL_DOMAINS` to slash schema overhead from ~10,000 tokens down to ~1,200 tokens for specialized agent roles (e.g. code reviewers).
 
 ---
 

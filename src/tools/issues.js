@@ -75,14 +75,58 @@ export const CreateIssueLinkSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const issueTools = [
-  { name: "list_issues", description: "List and filter issues by state, milestone, label, assignee, or search with clean summaries", inputSchema: zodToJsonSchema(ListIssuesSchema) },
-  { name: "get_issue", description: "Get comprehensive details for a specific issue by its IID (#<iid>)", inputSchema: zodToJsonSchema(GetIssueSchema) },
-  { name: "create_issue", description: "Create a new issue with milestone (by title or ID), labels, assignees, and due date", inputSchema: zodToJsonSchema(CreateIssueSchema), mutating: true },
-  { name: "update_issue", description: "Update issue title, description, state (close/reopen), milestone, labels, or assignees", inputSchema: zodToJsonSchema(UpdateIssueSchema), mutating: true },
-  { name: "list_issue_notes", description: "List discussions, comments, and activity log on an issue", inputSchema: zodToJsonSchema(ListIssueNotesSchema) },
-  { name: "create_issue_note", description: "Post a comment or progress/verification note to an issue", inputSchema: zodToJsonSchema(CreateIssueNoteSchema), mutating: true },
-  { name: "list_issue_links", description: "List related, blocking, or blocked-by issue dependencies", inputSchema: zodToJsonSchema(ListIssueLinksSchema) },
-  { name: "create_issue_link", description: "Create an issue dependency link (relates_to, blocks, is_blocked_by)", inputSchema: zodToJsonSchema(CreateIssueLinkSchema), mutating: true },
+  {
+    name: "list_issues",
+    title: "List Issues",
+    description: "List and filter project issues by state ('opened', 'closed', 'all'), milestone, labels, assignee, or keyword search with token-efficient summaries. Use to discover work items, bug reports, or planned tasks. Do NOT use to inspect complete issue comment histories; use 'list_issue_notes' instead.",
+    inputSchema: zodToJsonSchema(ListIssuesSchema),
+  },
+  {
+    name: "get_issue",
+    title: "Get Issue Details",
+    description: "Retrieve comprehensive details for a specific issue by its project-scoped IID (#<iid>), including description, assignees, labels, milestone, and issue status. Use to review issue requirements or track resolution. Do NOT use to list comments on the issue; use 'list_issue_notes' instead.",
+    inputSchema: zodToJsonSchema(GetIssueSchema),
+  },
+  {
+    name: "create_issue",
+    title: "Create Issue",
+    description: "Create a new issue with a title, markdown description, milestone (by title or ID), labels, assignees, and optional due date. Use to report bugs, track user stories, or plan tasks. Side effect: creates a new GitLab issue immediately. Do NOT use to comment on existing issues; use 'create_issue_note' instead.",
+    inputSchema: zodToJsonSchema(CreateIssueSchema),
+    mutating: true,
+  },
+  {
+    name: "update_issue",
+    title: "Update Issue",
+    description: "Update an existing issue's title, description, state ('close' or 'reopen'), milestone, labels, or assignees. Use to transition issue lifecycle or update task status. Side effect: alters issue state immediately. Do NOT use to post progress comments; use 'create_issue_note' instead.",
+    inputSchema: zodToJsonSchema(UpdateIssueSchema),
+    mutating: true,
+  },
+  {
+    name: "list_issue_notes",
+    title: "List Issue Notes & Comments",
+    description: "List the chronological discussion notes, user comments, and activity audit log for a specific issue by IID. Use to review problem discussion, past comments, or implementation progress. Do NOT use for merge request discussions; use 'list_merge_request_discussions' instead.",
+    inputSchema: zodToJsonSchema(ListIssueNotesSchema),
+  },
+  {
+    name: "create_issue_note",
+    title: "Add Issue Comment",
+    description: "Post a new markdown comment, progress update, or verification note to an existing issue. Use to communicate findings, document test results, or ask questions on a task. Side effect: posts a public comment to the issue thread immediately.",
+    inputSchema: zodToJsonSchema(CreateIssueNoteSchema),
+    mutating: true,
+  },
+  {
+    name: "list_issue_links",
+    title: "List Issue Links",
+    description: "List issue dependency links ('relates_to', 'blocks', 'is_blocked_by') associated with a specific issue. Use when analyzing task dependencies or release blockers. Do NOT use to inspect issue discussion notes; use 'list_issue_notes' instead.",
+    inputSchema: zodToJsonSchema(ListIssueLinksSchema),
+  },
+  {
+    name: "create_issue_link",
+    title: "Link Issues",
+    description: "Create a dependency or relationship link between two issues ('relates_to', 'blocks', 'is_blocked_by'), across the same project or across different projects. Use to track blocker relationships or connected bug reports. Side effect: creates a bi-directional issue relationship immediately.",
+    inputSchema: zodToJsonSchema(CreateIssueLinkSchema),
+    mutating: true,
+  },
 ];
 
 // Handlers

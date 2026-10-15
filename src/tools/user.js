@@ -51,11 +51,36 @@ export const ListMyProjectsSchema = z.object({
 
 // Tool Definitions
 export const userTools = [
-  { name: "get_current_user", description: "Get the profile and identity of the authenticated user (username, ID, name, email)", inputSchema: zodToJsonSchema(GetCurrentUserSchema) },
-  { name: "list_my_groups", description: "List groups the authenticated user is a member or owner of", inputSchema: zodToJsonSchema(ListMyGroupsSchema) },
-  { name: "get_group", description: "Get comprehensive group details, metadata, visibility, and description by group ID or path", inputSchema: zodToJsonSchema(GetGroupSchema) },
-  { name: "list_group_projects", description: "List all projects and repositories belonging to a specific group or organization", inputSchema: zodToJsonSchema(ListGroupProjectsSchema) },
-  { name: "list_my_projects", description: "List projects the authenticated user participates in, owns, or has starred", inputSchema: zodToJsonSchema(ListMyProjectsSchema) },
+  {
+    name: "get_current_user",
+    title: "Get Current Authenticated User",
+    description: "Retrieve identity and profile details of the authenticated GitLab account (username, numeric ID, name, email, admin flag). Use to verify token validity, check active permissions, or discover your own username for assignment. Do NOT use to query other users' profiles; use 'list_project_members' instead.",
+    inputSchema: zodToJsonSchema(GetCurrentUserSchema),
+  },
+  {
+    name: "list_my_groups",
+    title: "List User Groups",
+    description: "List GitLab groups and parent organizations where the authenticated user is an active member or owner with access roles. Use to discover namespace paths available for project creation or access audits. Do NOT use to inspect project lists directly; use 'list_group_projects' instead.",
+    inputSchema: zodToJsonSchema(ListMyGroupsSchema),
+  },
+  {
+    name: "get_group",
+    title: "Get Group Details",
+    description: "Retrieve comprehensive details for a specific GitLab group or namespace by its numeric ID or full path (e.g. 'buggycode'). Use when checking group-level visibility, description, or parent group hierarchy. Do NOT use to list projects in the group; use 'list_group_projects' instead.",
+    inputSchema: zodToJsonSchema(GetGroupSchema),
+  },
+  {
+    name: "list_group_projects",
+    title: "List Group Projects",
+    description: "List all repositories and projects belonging to a specific GitLab group or organization with pagination and search. Supports include_subgroups (default: true). Use to discover projects within a team or enterprise namespace. Do NOT use for cross-instance project search; use 'search_repositories' instead.",
+    inputSchema: zodToJsonSchema(ListGroupProjectsSchema),
+  },
+  {
+    name: "list_my_projects",
+    title: "List My Projects",
+    description: "List GitLab projects where the authenticated user is a direct member, owner, or starred contributor with role summaries. Use to discover personal repositories or starred codebases. Do NOT use for generic text searches across public projects; use 'search_repositories' instead.",
+    inputSchema: zodToJsonSchema(ListMyProjectsSchema),
+  },
 ];
 
 // Handlers

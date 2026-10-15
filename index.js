@@ -22,42 +22,53 @@ import { snippetTools, snippetHandlers } from "./src/tools/snippets.js";
 import { userTools, userHandlers } from "./src/tools/user.js";
 import { commitTools, commitHandlers } from "./src/tools/commits.js";
 
-const TOOLS = [
-  ...repositoryTools,
-  ...branchTools,
-  ...memberTools,
-  ...variableTools,
-  ...issueTools,
-  ...milestoneTools,
-  ...pipelineTools,
-  ...releaseTools,
-  ...mergeRequestTools,
-  ...wikiTools,
-  ...snippetTools,
-  ...userTools,
-  ...commitTools,
-];
-
-const HANDLERS = {
-  ...repositoryHandlers,
-  ...branchHandlers,
-  ...memberHandlers,
-  ...variableHandlers,
-  ...issueHandlers,
-  ...milestoneHandlers,
-  ...pipelineHandlers,
-  ...releaseHandlers,
-  ...mergeRequestHandlers,
-  ...wikiHandlers,
-  ...snippetHandlers,
-  ...userHandlers,
-  ...commitHandlers,
+const DOMAIN_MODULES = {
+  repositories: { tools: repositoryTools, handlers: repositoryHandlers },
+  branches: { tools: branchTools, handlers: branchHandlers },
+  commits: { tools: commitTools, handlers: commitHandlers },
+  members: { tools: memberTools, handlers: memberHandlers },
+  variables: { tools: variableTools, handlers: variableHandlers },
+  issues: { tools: issueTools, handlers: issueHandlers },
+  milestones: { tools: milestoneTools, handlers: milestoneHandlers },
+  pipelines: { tools: pipelineTools, handlers: pipelineHandlers },
+  releases: { tools: releaseTools, handlers: releaseHandlers },
+  "merge-requests": { tools: mergeRequestTools, handlers: mergeRequestHandlers },
+  wikis: { tools: wikiTools, handlers: wikiHandlers },
+  snippets: { tools: snippetTools, handlers: snippetHandlers },
+  user: { tools: userTools, handlers: userHandlers },
 };
+
+const DOMAIN_ALIASES = {
+  mr: "merge-requests",
+  merge_requests: "merge-requests",
+  repos: "repositories",
+  ci: "pipelines",
+};
+
+export function getActiveDomains() {
+  const envDomains = process.env.GITLAB_TOOL_DOMAINS;
+  if (!envDomains || envDomains.trim() === "" || envDomains.trim() === "*") {
+    return Object.keys(DOMAIN_MODULES);
+  }
+  const requested = envDomains
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .map((d) => DOMAIN_ALIASES[d] || d);
+  const active = requested.filter((d) => Boolean(DOMAIN_MODULES[d]));
+  return active.length > 0 ? active : Object.keys(DOMAIN_MODULES);
+}
+
+const activeDomains = getActiveDomains();
+const TOOLS = activeDomains.flatMap((d) => DOMAIN_MODULES[d].tools);
+const HANDLERS = Object.assign(
+  {},
+  ...activeDomains.map((d) => DOMAIN_MODULES[d].handlers)
+);
 
 const server = new Server(
   {
     name: "@sumirati/mcp-gitlab",
-    version: "2.0.0",
+    version: "2.1.0",
   },
   {
     capabilities: {
@@ -69,7 +80,22 @@ const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   const availableTools = isReadOnly() ? TOOLS.filter((t) => !t.mutating) : TOOLS;
   return {
-    tools: availableTools.map(({ mutating, ...tool }) => tool),
+    tools: availableTools.map(({ mutating, ...tool }) => ({
+      ...tool,
+      title:
+        tool.title ||
+        tool.name
+          .split("_")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" "),
+      annotations: {
+        readOnlyHint: !mutating,
+        destructiveHint: tool.name.startsWith("delete_") || tool.name.startsWith("remove_"),
+        idempotentHint: !mutating,
+        openWorldHint: false,
+        ...(tool.annotations || {}),
+      },
+    })),
   };
 });
 
@@ -106,11 +132,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function runServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  if (isReadOnly()) {
-    console.error("GitLab MCP Server running on stdio [READ-ONLY MODE: mutating tools disabled]");
-  } else {
-    console.error("GitLab MCP Server running on stdio");
-  }
+  const modeStr = isReadOnly() ? " [READ-ONLY MODE: mutating tools disabled]" : "";
+  const domainFilterStr = process.env.GITLAB_TOOL_DOMAINS
+    ? ` [DOMAINS: ${activeDomains.join(",")}]`
+    : "";
+  console.error(`GitLab MCP Server v2.1.0 running on stdio (${TOOLS.length} tools registered)${modeStr}${domainFilterStr}`);
 }
 
 runServer().catch((error) => {

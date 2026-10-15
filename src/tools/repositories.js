@@ -80,15 +80,66 @@ export const ForkRepositorySchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const repositoryTools = [
-  { name: "search_repositories", description: "Search for GitLab projects and repositories (optionally filtered by group)", inputSchema: zodToJsonSchema(SearchRepositoriesSchema) },
-  { name: "get_project", description: "Get comprehensive project metadata, description, default branch, and statistics", inputSchema: zodToJsonSchema(GetProjectSchema) },
-  { name: "create_repository", description: "Create a new GitLab project/repository (supports groups/namespaces and empty repos)", inputSchema: zodToJsonSchema(CreateRepositorySchema), mutating: true },
-  { name: "update_project", description: "Update project metadata (description, name, default branch, visibility, topics)", inputSchema: zodToJsonSchema(UpdateProjectSchema), mutating: true },
-  { name: "delete_project", description: "Delete a project/repository (requires explicit name confirmation for safety)", inputSchema: zodToJsonSchema(DeleteProjectSchema), mutating: true },
-  { name: "get_file_contents", description: "Read file or directory content from a project repository", inputSchema: zodToJsonSchema(GetFileContentsSchema) },
-  { name: "create_or_update_file", description: "Create or update a single file in a GitLab repository", inputSchema: zodToJsonSchema(CreateOrUpdateFileSchema), mutating: true },
-  { name: "push_files", description: "Commit multiple files in a single atomic commit", inputSchema: zodToJsonSchema(PushFilesSchema), mutating: true },
-  { name: "fork_repository", description: "Fork a project into a user or group namespace", inputSchema: zodToJsonSchema(ForkRepositorySchema), mutating: true },
+  {
+    name: "search_repositories",
+    title: "Search Repositories",
+    description: "Search for GitLab projects and repositories across the instance or scoped to a specific group namespace. Use when locating projects by keyword or discovery before project-scoped work. Do NOT use to inspect project configuration or default branches; use 'get_project' instead once a project ID or path is known.",
+    inputSchema: zodToJsonSchema(SearchRepositoriesSchema),
+  },
+  {
+    name: "get_project",
+    title: "Get Project Details",
+    description: "Retrieve comprehensive metadata for a specific GitLab project, including default branch, repository statistics, visibility, and topic tags. Use to inspect repository settings or verify project access. Do NOT use to inspect directory trees or source code; use 'get_file_contents' instead.",
+    inputSchema: zodToJsonSchema(GetProjectSchema),
+  },
+  {
+    name: "create_repository",
+    title: "Create Repository",
+    description: "Create a new GitLab project/repository under your personal namespace or a designated group. Use when provisioning new codebases or initializing repositories. Side effect: creates a new GitLab project immediately. Do NOT use to duplicate existing projects; use 'fork_repository' instead.",
+    inputSchema: zodToJsonSchema(CreateRepositorySchema),
+    mutating: true,
+  },
+  {
+    name: "update_project",
+    title: "Update Project Settings",
+    description: "Update mutable project settings including display name, description, default branch, visibility level, and topics. Use to modify repository configurations or administrative details. Side effect: alters project settings immediately. Do NOT use to commit code changes; use 'create_or_update_file' or 'push_files'.",
+    inputSchema: zodToJsonSchema(UpdateProjectSchema),
+    mutating: true,
+  },
+  {
+    name: "delete_project",
+    title: "Delete Project",
+    description: "Permanently delete a GitLab project and all its repository files, issues, merge requests, and CI/CD pipelines. Use solely for project decommissioning. Side effect: DESTRUCTIVE and irreversible. Requires explicit safety confirmation via confirm_project_name.",
+    inputSchema: zodToJsonSchema(DeleteProjectSchema),
+    mutating: true,
+  },
+  {
+    name: "get_file_contents",
+    title: "Get File Contents",
+    description: "Read the raw content of a specific file or directory tree from a repository at a designated branch, tag, or commit ref. Use when inspecting current repository source code or configs. Do NOT use for reviewing diffs between branches (use 'get_merge_request_changes') or viewing commit diffs (use 'get_commit').",
+    inputSchema: zodToJsonSchema(GetFileContentsSchema),
+  },
+  {
+    name: "create_or_update_file",
+    title: "Create or Update File",
+    description: "Create a new file or update the content of an existing file in a repository with a Git commit. Use for single-file changes or documentation updates. Side effect: creates an immediate Git commit on the remote branch. Do NOT use when updating multiple files together; use 'push_files' instead for atomic multi-file commits.",
+    inputSchema: zodToJsonSchema(CreateOrUpdateFileSchema),
+    mutating: true,
+  },
+  {
+    name: "push_files",
+    title: "Push Multiple Files",
+    description: "Atomically commit multiple file additions, modifications, or deletions to a target branch in a single Git commit. Use for multi-file refactors, features, or project scaffolding. Side effect: creates an atomic multi-action Git commit on the remote branch. Use instead of calling 'create_or_update_file' in a loop.",
+    inputSchema: zodToJsonSchema(PushFilesSchema),
+    mutating: true,
+  },
+  {
+    name: "fork_repository",
+    title: "Fork Repository",
+    description: "Fork an existing GitLab project into a designated user namespace or group. Use when contributing to upstream projects or establishing an independent fork. Side effect: provisions a new repository linked to the upstream source. Do NOT use to create fresh empty projects; use 'create_repository' instead.",
+    inputSchema: zodToJsonSchema(ForkRepositorySchema),
+    mutating: true,
+  },
 ];
 
 // Handlers

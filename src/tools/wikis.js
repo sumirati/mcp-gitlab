@@ -107,10 +107,32 @@ export const UpdateWikiSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const wikiTools = [
-  { name: "list_wikis", description: "List all wiki pages in a GitLab project (slugs, titles, and formats)", inputSchema: zodToJsonSchema(ListWikisSchema) },
-  { name: "get_wiki", description: "Get wiki page content, structured Table of Contents (toc_only), or a specific chapter/section by heading", inputSchema: zodToJsonSchema(GetWikiSchema) },
-  { name: "create_wiki", description: "Create a new wiki page in a GitLab project", inputSchema: zodToJsonSchema(CreateWikiSchema), mutating: true },
-  { name: "update_wiki", description: "Update an existing wiki page's content or title in a GitLab project", inputSchema: zodToJsonSchema(UpdateWikiSchema), mutating: true },
+  {
+    name: "list_wikis",
+    title: "List Wiki Pages",
+    description: "List all wiki documentation pages in a project with page slugs, titles, and formatting types. Use to discover available project documentation or guides. Do NOT use to read complete page contents; use 'get_wiki' instead.",
+    inputSchema: zodToJsonSchema(ListWikisSchema),
+  },
+  {
+    name: "get_wiki",
+    title: "Get Wiki Content & TOC",
+    description: "Retrieve wiki documentation content by page slug, with token-saving options including structured Table of Contents (toc_only: true) or targeting a specific chapter/heading section (section: 'Heading'). Use to consult project architectural guides without context blowout. Do NOT use for repository files; use 'get_file_contents' instead.",
+    inputSchema: zodToJsonSchema(GetWikiSchema),
+  },
+  {
+    name: "create_wiki",
+    title: "Create Wiki Page",
+    description: "Create a new wiki documentation page in a project with markdown content and formatting options. Use to document setup procedures, architecture, or design runbooks. Side effect: creates a new project wiki page immediately. Do NOT use to update existing pages; use 'update_wiki' instead.",
+    inputSchema: zodToJsonSchema(CreateWikiSchema),
+    mutating: true,
+  },
+  {
+    name: "update_wiki",
+    title: "Update Wiki Page",
+    description: "Update the markdown content or title of an existing project wiki page by slug. Use to update living project documentation, runbooks, or specifications. Side effect: alters the wiki page content immediately. Do NOT use to create new wiki pages; use 'create_wiki' instead.",
+    inputSchema: zodToJsonSchema(UpdateWikiSchema),
+    mutating: true,
+  },
 ];
 
 // Handlers

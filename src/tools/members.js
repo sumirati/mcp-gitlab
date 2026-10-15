@@ -54,11 +54,39 @@ async function resolveUserId(userIdentifier) {
 
 // Tool Definitions
 export const memberTools = [
-  { name: "list_project_members", description: "List project members and collaborators with access levels and roles", inputSchema: zodToJsonSchema(ListProjectMembersSchema) },
-  { name: "get_project_member", description: "Get details for a specific project member by user ID or username", inputSchema: zodToJsonSchema(GetProjectMemberSchema) },
-  { name: "add_project_member", description: "Add a user to a project with specified role/access level", inputSchema: zodToJsonSchema(AddProjectMemberSchema), mutating: true },
-  { name: "update_project_member", description: "Update a project member's access level role or expiration date", inputSchema: zodToJsonSchema(UpdateProjectMemberSchema), mutating: true },
-  { name: "remove_project_member", description: "Remove a user/collaborator from a project", inputSchema: zodToJsonSchema(RemoveProjectMemberSchema), mutating: true },
+  {
+    name: "list_project_members",
+    title: "List Project Members",
+    description: "List project members and collaborators with their assigned access levels, roles, and membership expiration dates. Supports filtering and including inherited group members. Use to audit project permissions or check collaborator access before assigning tasks. Do NOT use to inspect global user profiles; use 'get_current_user' instead.",
+    inputSchema: zodToJsonSchema(ListProjectMembersSchema),
+  },
+  {
+    name: "get_project_member",
+    title: "Get Project Member",
+    description: "Retrieve membership details, access level, and permissions for a specific user in a project by numeric ID or username. Use to verify whether a collaborator has Developer or Maintainer rights before triggering protected actions. Do NOT use to search all members; use 'list_project_members' instead.",
+    inputSchema: zodToJsonSchema(GetProjectMemberSchema),
+  },
+  {
+    name: "add_project_member",
+    title: "Add Project Member",
+    description: "Grant project access to a user with a specific role ('guest', 'reporter', 'developer', 'maintainer', 'owner') and optional expiration date. Resolves usernames automatically. Side effect: grants repository permissions immediately. Do NOT use to update existing memberships; use 'update_project_member' instead.",
+    inputSchema: zodToJsonSchema(AddProjectMemberSchema),
+    mutating: true,
+  },
+  {
+    name: "update_project_member",
+    title: "Update Project Member",
+    description: "Change an existing collaborator's access level role or expiration date within a project. Resolves usernames automatically. Side effect: alters project access control immediately. Do NOT use to add new members; use 'add_project_member' instead.",
+    inputSchema: zodToJsonSchema(UpdateProjectMemberSchema),
+    mutating: true,
+  },
+  {
+    name: "remove_project_member",
+    title: "Remove Project Member",
+    description: "Revoke a collaborator's access to a project repository and its associated resources. Side effect: DESTRUCTIVE for user access; immediately removes repository permissions. Do NOT use to adjust access levels; use 'update_project_member' instead.",
+    inputSchema: zodToJsonSchema(RemoveProjectMemberSchema),
+    mutating: true,
+  },
 ];
 
 // Handlers

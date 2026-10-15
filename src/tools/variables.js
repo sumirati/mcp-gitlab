@@ -44,11 +44,39 @@ export const DeleteProjectVariableSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const variableTools = [
-  { name: "list_project_variables", description: "List CI/CD project variables with keys, types, protected/masked flags, and environment scopes", inputSchema: zodToJsonSchema(ListProjectVariablesSchema) },
-  { name: "get_project_variable", description: "Get specific CI/CD variable details and value by key", inputSchema: zodToJsonSchema(GetProjectVariableSchema) },
-  { name: "create_project_variable", description: "Create a new CI/CD project variable (env_var or file)", inputSchema: zodToJsonSchema(CreateProjectVariableSchema), mutating: true },
-  { name: "update_project_variable", description: "Update an existing CI/CD project variable's value or configuration", inputSchema: zodToJsonSchema(UpdateProjectVariableSchema), mutating: true },
-  { name: "delete_project_variable", description: "Delete a CI/CD project variable by key", inputSchema: zodToJsonSchema(DeleteProjectVariableSchema), mutating: true },
+  {
+    name: "list_project_variables",
+    title: "List CI/CD Project Variables",
+    description: "List all CI/CD pipeline variables configured for a project, including keys, variable types ('env_var' or 'file'), protected/masked flags, and environment scopes. Use to verify secret and configuration presence before running build/deploy pipelines. Do NOT use to fetch secret values; use 'get_project_variable' instead.",
+    inputSchema: zodToJsonSchema(ListProjectVariablesSchema),
+  },
+  {
+    name: "get_project_variable",
+    title: "Get CI/CD Variable",
+    description: "Retrieve comprehensive details and current value of a specific CI/CD variable by key name. Use when debugging pipeline environment failures or checking secret values. Do NOT use to list all configured variables; use 'list_project_variables' instead.",
+    inputSchema: zodToJsonSchema(GetProjectVariableSchema),
+  },
+  {
+    name: "create_project_variable",
+    title: "Create CI/CD Variable",
+    description: "Create a new CI/CD pipeline variable ('env_var' or 'file') with protected, masked, and environment scope settings. Use when configuring build secrets, tokens, or environment configs. Side effect: exposes the variable to CI/CD pipeline jobs immediately. Do NOT use to update existing variables; use 'update_project_variable' instead.",
+    inputSchema: zodToJsonSchema(CreateProjectVariableSchema),
+    mutating: true,
+  },
+  {
+    name: "update_project_variable",
+    title: "Update CI/CD Variable",
+    description: "Update the value, masking status, protection status, or environment scope of an existing CI/CD variable. Use when rotating secrets or updating configuration values. Side effect: alters the pipeline execution environment immediately. Do NOT use to create new variables; use 'create_project_variable' instead.",
+    inputSchema: zodToJsonSchema(UpdateProjectVariableSchema),
+    mutating: true,
+  },
+  {
+    name: "delete_project_variable",
+    title: "Delete CI/CD Variable",
+    description: "Permanently delete a CI/CD pipeline variable from a project by key. Use when revoking expired credentials or cleaning up obsolete configuration. Side effect: DESTRUCTIVE; subsequent pipeline runs will no longer have access to this variable.",
+    inputSchema: zodToJsonSchema(DeleteProjectVariableSchema),
+    mutating: true,
+  },
 ];
 
 // Handlers

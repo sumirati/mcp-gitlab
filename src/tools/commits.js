@@ -23,8 +23,18 @@ export const GetCommitSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const commitTools = [
-  { name: "list_commits", description: "List commit history for a project, branch, or specific file path", inputSchema: zodToJsonSchema(ListCommitsSchema) },
-  { name: "get_commit", description: "Get commit details, author info, stats, changed file list, and selective file diffs", inputSchema: zodToJsonSchema(GetCommitSchema) },
+  {
+    name: "list_commits",
+    title: "List Commits",
+    description: "List chronological commit history for a project, branch, or specific file path with author metadata and commit messages. Use when reviewing recent changes or finding commit SHAs. Do NOT use to inspect complete file diffs; use 'get_commit' or 'get_merge_request_changes' instead.",
+    inputSchema: zodToJsonSchema(ListCommitsSchema),
+  },
+  {
+    name: "get_commit",
+    title: "Get Commit Details & Diff",
+    description: "Retrieve comprehensive details for a specific Git commit SHA, including author info, statistics, modified files, and selective unified file diffs. Use to inspect exact code changes made in a commit. Supports file_path filtering and line limits to prevent context exhaustion on large commits.",
+    inputSchema: zodToJsonSchema(GetCommitSchema),
+  },
 ];
 
 // Handlers

@@ -26,10 +26,32 @@ export const DeleteBranchSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const branchTools = [
-  { name: "list_branches", description: "List repository branches with commit details, default flag, and protected status", inputSchema: zodToJsonSchema(ListBranchesSchema) },
-  { name: "get_branch", description: "Get specific branch details, commit SHA, and protection rules", inputSchema: zodToJsonSchema(GetBranchSchema) },
-  { name: "create_branch", description: "Create a new branch from a commit, tag, or branch", inputSchema: zodToJsonSchema(CreateBranchSchema), mutating: true },
-  { name: "delete_branch", description: "Delete a branch from a project repository (blocks accidental deletion of default branch)", inputSchema: zodToJsonSchema(DeleteBranchSchema), mutating: true },
+  {
+    name: "list_branches",
+    title: "List Branches",
+    description: "List repository branches with latest commit summaries, default branch indicators, and protected status. Use to discover active development branches or check branch existence. Do NOT use to inspect commit diffs (use 'get_commit') or list tags (use 'list_tags').",
+    inputSchema: zodToJsonSchema(ListBranchesSchema),
+  },
+  {
+    name: "get_branch",
+    title: "Get Branch Details",
+    description: "Retrieve comprehensive details for a specific Git branch, including latest commit SHA, author info, and branch protection rules. Use to verify commit alignment before creating merge requests. Do NOT use to inspect file contents directly; use 'get_file_contents' instead.",
+    inputSchema: zodToJsonSchema(GetBranchSchema),
+  },
+  {
+    name: "create_branch",
+    title: "Create Branch",
+    description: "Create a new Git branch starting from an existing branch, tag, or commit SHA. Use to initialize feature branches, bugfixes, or release branches. Side effect: creates a new branch pointer on the remote repository. Do NOT use to create new repositories; use 'create_repository' instead.",
+    inputSchema: zodToJsonSchema(CreateBranchSchema),
+    mutating: true,
+  },
+  {
+    name: "delete_branch",
+    title: "Delete Branch",
+    description: "Delete an existing Git branch from a project repository. Use to clean up merged or obsolete feature branches. Side effect: DESTRUCTIVE. Accidental deletion of the project's default branch is actively blocked for safety. Do NOT use to delete tags; use Git tag management instead.",
+    inputSchema: zodToJsonSchema(DeleteBranchSchema),
+    mutating: true,
+  },
 ];
 
 // Handlers

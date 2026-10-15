@@ -7,12 +7,12 @@
     "url": "https://github.com/sumirati/mcp-gitlab",
     "source": "github"
   },
-  "version": "2.0.0",
+  "version": "2.1.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@sumirati/mcp-gitlab",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "transport": {
         "type": "stdio"
       },
@@ -33,6 +33,12 @@
           "name": "GITLAB_READ_ONLY",
           "description": "Enable read-only safety mode (true/false, default: false)",
           "default": "false",
+          "isRequired": false
+        },
+        {
+          "name": "GITLAB_TOOL_DOMAINS",
+          "description": "Comma-separated domain whitelist to restrict registered tools and preserve context window tokens (e.g. 'repositories,merge-requests,issues')",
+          "default": "*",
           "isRequired": false
         }
       ]

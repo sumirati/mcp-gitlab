@@ -34,10 +34,32 @@ export const UpdateSnippetSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const snippetTools = [
-  { name: "list_snippets", description: "List code snippets in a GitLab project with visibility and author details", inputSchema: zodToJsonSchema(ListSnippetsSchema) },
-  { name: "get_snippet", description: "Get code snippet details and raw file content by snippet ID", inputSchema: zodToJsonSchema(GetSnippetSchema) },
-  { name: "create_snippet", description: "Create a new code snippet in a GitLab project", inputSchema: zodToJsonSchema(CreateSnippetSchema), mutating: true },
-  { name: "update_snippet", description: "Update an existing code snippet's content, title, file name, or visibility", inputSchema: zodToJsonSchema(UpdateSnippetSchema), mutating: true },
+  {
+    name: "list_snippets",
+    title: "List Code Snippets",
+    description: "List code snippets published in a GitLab project with author details, file names, and visibility levels ('private', 'internal', 'public'). Use to discover utility scripts, SQL queries, or configuration templates stored in project snippets. Do NOT use to inspect raw snippet code; use 'get_snippet' instead.",
+    inputSchema: zodToJsonSchema(ListSnippetsSchema),
+  },
+  {
+    name: "get_snippet",
+    title: "Get Code Snippet",
+    description: "Retrieve comprehensive details and raw text content for a specific code snippet by numeric ID. Use to inspect code scripts, patches, or configuration snippets. Do NOT use for repository files; use 'get_file_contents' instead.",
+    inputSchema: zodToJsonSchema(GetSnippetSchema),
+  },
+  {
+    name: "create_snippet",
+    title: "Create Code Snippet",
+    description: "Create a new code or text snippet in a project with a title, file name, markdown description, and visibility setting. Use to share debug scripts, one-off patches, or configuration snippets. Side effect: creates a new GitLab snippet immediately. Do NOT use to commit files to git repositories; use 'create_or_update_file' instead.",
+    inputSchema: zodToJsonSchema(CreateSnippetSchema),
+    mutating: true,
+  },
+  {
+    name: "update_snippet",
+    title: "Update Code Snippet",
+    description: "Update the code content, file name, title, description, or visibility of an existing project snippet by numeric ID. Use to maintain snippet code or adjust access. Side effect: alters the snippet immediately. Do NOT use to create new snippets; use 'create_snippet' instead.",
+    inputSchema: zodToJsonSchema(UpdateSnippetSchema),
+    mutating: true,
+  },
 ];
 
 // Handlers

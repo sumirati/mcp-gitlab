@@ -113,18 +113,86 @@ export const CreateMergeRequestNoteSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const mergeRequestTools = [
-  { name: "list_merge_requests", description: "List merge requests filtered by state, branches, milestone, or labels", inputSchema: zodToJsonSchema(ListMergeRequestsSchema) },
-  { name: "get_merge_request", description: "Get details and status of a merge request by IID (!<iid>)", inputSchema: zodToJsonSchema(GetMergeRequestSchema) },
-  { name: "create_merge_request", description: "Create a merge request between branches with description and options", inputSchema: zodToJsonSchema(CreateMergeRequestSchema), mutating: true },
-  { name: "update_merge_request", description: "Update MR title, description, state (close/reopen), target branch, milestone, or labels", inputSchema: zodToJsonSchema(UpdateMergeRequestSchema), mutating: true },
-  { name: "get_merge_request_changes", description: "Inspect code diffs and modified files in an MR (supports token-saving summary, file filtering, and lockfile pruning)", inputSchema: zodToJsonSchema(GetMergeRequestChangesSchema) },
-  { name: "list_merge_request_discussions", description: "List inline code review discussions and threads on an MR (supports unresolved_only filter)", inputSchema: zodToJsonSchema(ListMergeRequestDiscussionsSchema) },
-  { name: "create_diff_discussion", description: "Post an inline code review comment on a specific line and file in an MR (resolves SHAs automatically)", inputSchema: zodToJsonSchema(CreateDiffDiscussionSchema), mutating: true },
-  { name: "reply_merge_request_discussion", description: "Post a reply comment into an existing MR code review discussion thread", inputSchema: zodToJsonSchema(ReplyMergeRequestDiscussionSchema), mutating: true },
-  { name: "update_merge_request_discussion_note", description: "Update or edit the text of an existing review comment in an MR discussion thread", inputSchema: zodToJsonSchema(UpdateMergeRequestDiscussionNoteSchema), mutating: true },
-  { name: "resolve_merge_request_discussion", description: "Resolve or unresolve a code review discussion thread on an MR", inputSchema: zodToJsonSchema(ResolveMergeRequestDiscussionSchema), mutating: true },
-  { name: "accept_merge_request", description: "Merge an approved merge request into the target branch", inputSchema: zodToJsonSchema(AcceptMergeRequestSchema), mutating: true },
-  { name: "create_merge_request_note", description: "Post a general review comment or note on a merge request", inputSchema: zodToJsonSchema(CreateMergeRequestNoteSchema), mutating: true },
+  {
+    name: "list_merge_requests",
+    title: "List Merge Requests",
+    description: "List merge requests filtered by state ('opened', 'closed', 'merged', 'all'), source/target branches, milestone, labels, or search text with token-efficient summaries. Use to discover active PRs, track review queues, or inspect open branches. Do NOT use to inspect unified diffs; use 'get_merge_request_changes' instead.",
+    inputSchema: zodToJsonSchema(ListMergeRequestsSchema),
+  },
+  {
+    name: "get_merge_request",
+    title: "Get Merge Request Details",
+    description: "Retrieve comprehensive details for a specific merge request by IID (!<iid>), including status, mergeability, approval state, branch names, diff head SHA, and description. Use to evaluate review state or prepare for merging. Do NOT use to inspect file diffs; use 'get_merge_request_changes' instead.",
+    inputSchema: zodToJsonSchema(GetMergeRequestSchema),
+  },
+  {
+    name: "create_merge_request",
+    title: "Create Merge Request",
+    description: "Create a new merge request proposing changes from a source branch into a target branch. Supports setting title, markdown description, assignees, reviewers, milestone, and target branch removal options. Side effect: creates a new GitLab MR immediately. Do NOT use to post review comments; use 'create_diff_discussion' instead.",
+    inputSchema: zodToJsonSchema(CreateMergeRequestSchema),
+    mutating: true,
+  },
+  {
+    name: "update_merge_request",
+    title: "Update Merge Request",
+    description: "Update an existing merge request's title, description, target branch, milestone, labels, assignees, or state ('close' or 'reopen'). Use to update MR details or close obsolete requests. Side effect: alters MR configuration immediately. Do NOT use to merge the MR; use 'accept_merge_request' instead.",
+    inputSchema: zodToJsonSchema(UpdateMergeRequestSchema),
+    mutating: true,
+  },
+  {
+    name: "get_merge_request_changes",
+    title: "Get Merge Request Code Diffs",
+    description: "Inspect unified code diffs and modified files for an MR with automatic pagination assembly across all changed files. Features token-saving summaries (summary_only), file path filtering, lockfile pruning, and automatic diff refs (base_sha, start_sha, head_sha) needed for inline comments. Use for AI code review analysis.",
+    inputSchema: zodToJsonSchema(GetMergeRequestChangesSchema),
+  },
+  {
+    name: "list_merge_request_discussions",
+    title: "List MR Review Discussions",
+    description: "List inline code review discussions, comment threads, and resolution statuses on a merge request. Supports filtering for unresolved review comments (unresolved_only: true). Use when reviewing outstanding code comments or verifying review feedback. Do NOT use for general project issue comments; use 'list_issue_notes' instead.",
+    inputSchema: zodToJsonSchema(ListMergeRequestDiscussionsSchema),
+  },
+  {
+    name: "create_diff_discussion",
+    title: "Create Inline Diff Review Comment",
+    description: "Start a new inline code review discussion thread anchored to a specific file and line number in an MR diff. Automatically resolves the required base_sha, start_sha, and head_sha from the MR if omitted. Use during code reviews to leave actionable inline feedback. Side effect: posts a public review thread immediately.",
+    inputSchema: zodToJsonSchema(CreateDiffDiscussionSchema),
+    mutating: true,
+  },
+  {
+    name: "reply_merge_request_discussion",
+    title: "Reply to MR Review Discussion",
+    description: "Post a reply comment into an existing code review discussion thread on a merge request. Use to answer review feedback or confirm code fixes. Side effect: appends a reply note to the discussion thread immediately. Do NOT use to resolve the discussion; use 'resolve_merge_request_discussion' instead.",
+    inputSchema: zodToJsonSchema(ReplyMergeRequestDiscussionSchema),
+    mutating: true,
+  },
+  {
+    name: "update_merge_request_discussion_note",
+    title: "Update MR Review Comment",
+    description: "Edit or update the text of an existing review comment in an MR discussion thread. Use when correcting review remarks or updating code suggestions. Side effect: modifies the comment text immediately. Do NOT use to post new comments; use 'reply_merge_request_discussion' or 'create_diff_discussion' instead.",
+    inputSchema: zodToJsonSchema(UpdateMergeRequestDiscussionNoteSchema),
+    mutating: true,
+  },
+  {
+    name: "resolve_merge_request_discussion",
+    title: "Resolve/Unresolve MR Discussion",
+    description: "Resolve or unresolve an entire code review discussion thread on a merge request. Use when verification has confirmed that review feedback has been addressed. Side effect: updates the review thread resolution status immediately.",
+    inputSchema: zodToJsonSchema(ResolveMergeRequestDiscussionSchema),
+    mutating: true,
+  },
+  {
+    name: "accept_merge_request",
+    title: "Merge Merge Request",
+    description: "Merge an approved merge request into its target branch. Supports squash commits, custom merge commit messages, and deleting the source branch upon merge. Side effect: merges branches and triggers downstream CI/CD deployment pipelines immediately. Do NOT use if tests are failing or approvals are pending.",
+    inputSchema: zodToJsonSchema(AcceptMergeRequestSchema),
+    mutating: true,
+  },
+  {
+    name: "create_merge_request_note",
+    title: "Add General MR Comment",
+    description: "Post a top-level general comment or review summary note on a merge request. Use for overall review summaries, LGTMs, or test execution reports. Side effect: posts a general note to the MR immediately. Do NOT use for line-specific diff review feedback; use 'create_diff_discussion' instead.",
+    inputSchema: zodToJsonSchema(CreateMergeRequestNoteSchema),
+    mutating: true,
+  },
 ];
 
 // Handlers

@@ -35,11 +35,38 @@ export const CreateTagSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const releaseTools = [
-  { name: "list_releases", description: "List published project releases and version changelogs", inputSchema: zodToJsonSchema(ListReleasesSchema) },
-  { name: "get_release", description: "Get release details by tag name", inputSchema: zodToJsonSchema(GetReleaseSchema) },
-  { name: "create_release", description: "Publish a formal release with tag, description/changelog, and associated milestones", inputSchema: zodToJsonSchema(CreateReleaseSchema), mutating: true },
-  { name: "list_tags", description: "List git tags in the repository", inputSchema: zodToJsonSchema(ListTagsSchema) },
-  { name: "create_tag", description: "Create a git tag pointing to a branch or commit", inputSchema: zodToJsonSchema(CreateTagSchema), mutating: true },
+  {
+    name: "list_releases",
+    title: "List Published Releases",
+    description: "List published GitLab releases, version tags, changelog descriptions, and linked assets. Use when checking released versions or reviewing release history. Do NOT use to inspect raw git tags without release notes; use 'list_tags' instead.",
+    inputSchema: zodToJsonSchema(ListReleasesSchema),
+  },
+  {
+    name: "get_release",
+    title: "Get Release Details",
+    description: "Retrieve comprehensive details for a published release by tag name, including markdown release notes, author, and downloadable asset links. Use to view full release notes or changelogs. Do NOT use to inspect milestone goals; use 'get_milestone' instead.",
+    inputSchema: zodToJsonSchema(GetReleaseSchema),
+  },
+  {
+    name: "create_release",
+    title: "Publish Release",
+    description: "Publish a formal GitLab release associated with a git tag, including title, markdown changelog notes, and linked milestone titles. If the tag does not exist, ref is required to create it. Side effect: creates a formal public release entry. Do NOT use to create bare tags; use 'create_tag' instead.",
+    inputSchema: zodToJsonSchema(CreateReleaseSchema),
+    mutating: true,
+  },
+  {
+    name: "list_tags",
+    title: "List Git Tags",
+    description: "List Git tags in the repository with commit target SHAs, release links, and annotation messages. Use to check if a specific release tag already exists before tagging. Do NOT use to view release notes; use 'list_releases' instead.",
+    inputSchema: zodToJsonSchema(ListTagsSchema),
+  },
+  {
+    name: "create_tag",
+    title: "Create Git Tag",
+    description: "Create an annotated or lightweight Git tag pointing to a specific branch or commit SHA. Use to mark release points or version milestones in Git history. Side effect: creates a new Git tag on the remote repository immediately. Do NOT use to publish full release notes; use 'create_release' instead.",
+    inputSchema: zodToJsonSchema(CreateTagSchema),
+    mutating: true,
+  },
 ];
 
 // Handlers

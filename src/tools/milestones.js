@@ -48,12 +48,45 @@ export const CreateLabelSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const milestoneTools = [
-  { name: "list_milestones", description: "List project milestones (active, closed, all) with start and due dates", inputSchema: zodToJsonSchema(ListMilestonesSchema) },
-  { name: "get_milestone", description: "Get details for a specific milestone by ID", inputSchema: zodToJsonSchema(GetMilestoneSchema) },
-  { name: "create_milestone", description: "Create a project milestone with due dates and roadmap scope", inputSchema: zodToJsonSchema(CreateMilestoneSchema), mutating: true },
-  { name: "update_milestone", description: "Update milestone dates, title, description, or state (close/activate)", inputSchema: zodToJsonSchema(UpdateMilestoneSchema), mutating: true },
-  { name: "list_labels", description: "List labels available in the project", inputSchema: zodToJsonSchema(ListLabelsSchema) },
-  { name: "create_label", description: "Create a project label with color and description", inputSchema: zodToJsonSchema(CreateLabelSchema), mutating: true },
+  {
+    name: "list_milestones",
+    title: "List Milestones",
+    description: "List project and ancestor group milestones filtered by state ('active', 'closed', 'all') with start dates, due dates, and progress. Use to track sprint goals, release targets, or project roadmaps. Do NOT use to inspect individual issue lists inside a milestone; use 'list_issues' with a milestone filter instead.",
+    inputSchema: zodToJsonSchema(ListMilestonesSchema),
+  },
+  {
+    name: "get_milestone",
+    title: "Get Milestone Details",
+    description: "Retrieve comprehensive details for a specific project milestone by numeric ID, including description, dates, and state. Use when validating target milestone dates or checking milestone progress. Do NOT use to list project milestones; use 'list_milestones' instead.",
+    inputSchema: zodToJsonSchema(GetMilestoneSchema),
+  },
+  {
+    name: "create_milestone",
+    title: "Create Milestone",
+    description: "Create a new project milestone with a title, description, start date, and due date. Use to plan a release version, sprint, or delivery roadmap. Side effect: creates a new project milestone immediately. Do NOT use to create releases; use 'create_release' instead.",
+    inputSchema: zodToJsonSchema(CreateMilestoneSchema),
+    mutating: true,
+  },
+  {
+    name: "update_milestone",
+    title: "Update Milestone",
+    description: "Update an existing milestone's title, description, due date, start date, or lifecycle state ('activate' or 'close'). Use to adjust release schedules or complete sprints. Side effect: alters milestone metadata immediately.",
+    inputSchema: zodToJsonSchema(UpdateMilestoneSchema),
+    mutating: true,
+  },
+  {
+    name: "list_labels",
+    title: "List Labels",
+    description: "List labels available within a project (including inherited ancestor group labels) with colors and descriptions. Use to discover valid taxonomy labels before categorizing issues or merge requests. Do NOT use to create new labels; use 'create_label' instead.",
+    inputSchema: zodToJsonSchema(ListLabelsSchema),
+  },
+  {
+    name: "create_label",
+    title: "Create Label",
+    description: "Create a new label with a name, hexadecimal color code, and description in a project. Use when establishing project workflow tags, priority markers, or component categories. Side effect: creates a new project label immediately.",
+    inputSchema: zodToJsonSchema(CreateLabelSchema),
+    mutating: true,
+  },
 ];
 
 // Handlers
