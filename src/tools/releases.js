@@ -5,8 +5,10 @@ import { ProjectParamsSchema } from "../schemas.js";
 
 // Schemas
 export const ListReleasesSchema = ProjectParamsSchema.extend({
-  page: z.number().optional().default(1),
-  per_page: z.number().optional().default(20),
+  order_by: z.enum(["released_at", "created_at"]).optional().default("released_at").describe("Order releases by released_at or created_at"),
+  sort: z.enum(["asc", "desc"]).optional().default("desc").describe("Sort direction (default: desc)"),
+  page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of releases per page (default: 20, max: 100)"),
 });
 
 export const GetReleaseSchema = ProjectParamsSchema.extend({
@@ -23,8 +25,10 @@ export const CreateReleaseSchema = ProjectParamsSchema.extend({
 
 export const ListTagsSchema = ProjectParamsSchema.extend({
   search: z.string().optional().describe("Search query to filter tag names"),
-  page: z.number().optional().default(1),
-  per_page: z.number().optional().default(20),
+  order_by: z.enum(["name", "updated", "version"]).optional().default("updated").describe("Order tags by name, updated, or version"),
+  sort: z.enum(["asc", "desc"]).optional().default("desc").describe("Sort direction (default: desc)"),
+  page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of tags per page (default: 20, max: 100)"),
 });
 
 export const CreateTagSchema = ProjectParamsSchema.extend({
@@ -77,6 +81,8 @@ export const releaseHandlers = {
     const q = new URLSearchParams({
       page: parsed.page.toString(),
       per_page: parsed.per_page.toString(),
+      order_by: parsed.order_by,
+      sort: parsed.sort,
     });
     const res = await gitlabRequest(`/projects/${pId}/releases?${q.toString()}`);
     return res.items || res;
@@ -110,6 +116,8 @@ export const releaseHandlers = {
     const q = new URLSearchParams({
       page: parsed.page.toString(),
       per_page: parsed.per_page.toString(),
+      order_by: parsed.order_by,
+      sort: parsed.sort,
     });
     if (parsed.search) q.append("search", parsed.search);
     const res = await gitlabRequest(`/projects/${pId}/repository/tags?${q.toString()}`);

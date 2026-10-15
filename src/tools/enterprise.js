@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
-import { gitlabRequest, formatProjectId } from "../client.js";
+import { gitlabRequest, formatProjectId, isReadOnly } from "../client.js";
 import { ProjectParamsSchema } from "../schemas.js";
 import { summarizeMirror, summarizeRunner, summarizeHook } from "../helpers.js";
 
 // Schemas
+export const SystemHealthCheckSchema = z.object({});
+
 export const ListPushMirrorsSchema = ProjectParamsSchema.extend({
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
   per_page: z.number().optional().default(20).describe("Number of mirrors per page (default: 20)"),
@@ -33,6 +35,12 @@ export const ListProjectHooksSchema = ProjectParamsSchema.extend({
 
 // Tool Definitions
 export const enterpriseTools = [
+  {
+    name: "system_health_check",
+    title: "System Health & Diagnostics Check",
+    description: "Perform end-to-end connectivity, latency, and permission diagnostics against the GitLab instance. Verifies API availability, authentication identity, server version/edition (when permitted), and active read-only policy.",
+    inputSchema: zodToJsonSchema(SystemHealthCheckSchema),
+  },
   {
     name: "list_push_mirrors",
     title: "List Push Mirrors",
@@ -68,6 +76,38 @@ export const enterpriseTools = [
 
 // Handlers
 export const enterpriseHandlers = {
+  system_health_check: async () => {
+    const startTime = Date.now();
+    let versionInfo = null;
+    try {
+      versionInfo = await gitlabRequest("/version");
+    } catch {
+      // /version endpoint may require admin access in some GitLab configurations; fallback gracefully
+    }
+    const user = await gitlabRequest("/user");
+    const latencyMs = Date.now() - startTime;
+
+    return {
+      status: "healthy",
+      api_latency_ms: latencyMs,
+      read_only_mode: isReadOnly(),
+      authenticated_user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        is_admin: Boolean(user.is_admin),
+      },
+      instance: versionInfo
+        ? {
+            version: versionInfo.version,
+            revision: versionInfo.revision,
+          }
+        : {
+            version: "accessible (endpoint /version restricted to admin)",
+          },
+    };
+  },
+
   list_push_mirrors: async (args) => {
     const parsed = ListPushMirrorsSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);

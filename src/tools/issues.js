@@ -23,11 +23,13 @@ export const ListIssuesSchema = ProjectParamsSchema.extend({
   labels: z.union([z.string(), z.array(z.string())]).optional().describe("Filter by label names (comma-separated or array)"),
   search: z.string().optional().describe("Search query matching issue title or description"),
   assignee_id: z.number().optional().describe("Filter by assignee user ID"),
+  assignee_username: z.string().optional().describe("Filter by assignee username directly pushed upstream"),
   author_id: z.number().optional().describe("Filter by author user ID"),
+  author_username: z.string().optional().describe("Filter by author username directly pushed upstream"),
   order_by: z.enum(["created_at", "updated_at", "priority", "due_date"]).optional().default("created_at").describe("Field to sort by"),
   sort: z.enum(["asc", "desc"]).optional().default("desc").describe("Sort direction"),
   page: z.number().optional().default(1).describe("Page number for pagination"),
-  per_page: z.number().optional().default(20).describe("Items per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Items per page (default: 20, max: 100)"),
   verbose: z.boolean().optional().default(false).describe("If true, returns full raw GitLab objects instead of clean summaries"),
 });
 
@@ -54,7 +56,7 @@ export const ListIssueNotesSchema = ProjectParamsSchema.extend({
   sort: z.enum(["asc", "desc"]).optional().default("asc").describe("Sort direction for comments"),
   order_by: z.enum(["created_at", "updated_at"]).optional().default("created_at"),
   page: z.number().optional().default(1),
-  per_page: z.number().optional().default(50),
+  per_page: z.number().min(1).max(100).optional().default(50).describe("Number of notes per page (default: 50, max: 100)"),
 });
 
 export const CreateIssueNoteSchema = ProjectParamsSchema.extend({
@@ -78,7 +80,7 @@ export const issueTools = [
   {
     name: "list_issues",
     title: "List Issues",
-    description: "List and filter project issues by state ('opened', 'closed', 'all'), milestone, labels, assignee, or keyword search with token-efficient summaries. Use to discover work items, bug reports, or planned tasks. Do NOT use to inspect complete issue comment histories; use 'list_issue_notes' instead.",
+    description: "List and filter project issues by state ('opened', 'closed', 'all'), milestone, labels, author, assignee, or keyword search pushed directly upstream to GitLab's indexed database. Architectural Best Practice: For known issues, always prefer 'get_issue' with exact issue_iid rather than broad listing.",
     inputSchema: zodToJsonSchema(ListIssuesSchema),
   },
   {
@@ -142,7 +144,9 @@ export const issueHandlers = {
     if (parsed.labels) q.append("labels", formatLabels(parsed.labels));
     if (parsed.search) q.append("search", parsed.search);
     if (parsed.assignee_id !== undefined) q.append("assignee_id", parsed.assignee_id.toString());
+    if (parsed.assignee_username) q.append("assignee_username", parsed.assignee_username);
     if (parsed.author_id !== undefined) q.append("author_id", parsed.author_id.toString());
+    if (parsed.author_username) q.append("author_username", parsed.author_username);
     if (parsed.order_by) q.append("order_by", parsed.order_by);
     if (parsed.sort) q.append("sort", parsed.sort);
     q.append("page", parsed.page.toString());

@@ -22,9 +22,17 @@ export const ListMergeRequestsSchema = ProjectParamsSchema.extend({
   target_branch: z.string().optional().describe("Filter by target branch"),
   milestone: z.string().optional().describe("Filter by milestone title"),
   labels: z.union([z.string(), z.array(z.string())]).optional().describe("Filter by labels"),
+  author_id: z.number().optional().describe("Filter by author user ID"),
+  author_username: z.string().optional().describe("Filter by author username directly pushed upstream"),
+  assignee_id: z.number().optional().describe("Filter by assignee user ID"),
+  assignee_username: z.string().optional().describe("Filter by assignee username directly pushed upstream"),
+  reviewer_id: z.number().optional().describe("Filter by reviewer user ID"),
+  reviewer_username: z.string().optional().describe("Filter by reviewer username directly pushed upstream"),
+  order_by: z.enum(["created_at", "updated_at"]).optional().default("created_at").describe("Field to sort by"),
+  sort: z.enum(["asc", "desc"]).optional().default("desc").describe("Sort direction"),
   search: z.string().optional().describe("Search query for title and description"),
   page: z.number().optional().default(1),
-  per_page: z.number().optional().default(20),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of MRs per page (default: 20, max: 100)"),
 });
 
 export const GetMergeRequestSchema = ProjectParamsSchema.extend({
@@ -69,7 +77,7 @@ export const ListMergeRequestDiscussionsSchema = ProjectParamsSchema.extend({
   merge_request_iid: z.number().describe("Merge request IID"),
   unresolved_only: z.boolean().optional().default(false).describe("If true, returns only unresolved discussions that need attention"),
   page: z.number().optional().default(1),
-  per_page: z.number().optional().default(50),
+  per_page: z.number().min(1).max(100).optional().default(50).describe("Number of discussions per page (default: 50, max: 100)"),
 });
 
 export const CreateDiffDiscussionSchema = ProjectParamsSchema.extend({
@@ -116,7 +124,7 @@ export const mergeRequestTools = [
   {
     name: "list_merge_requests",
     title: "List Merge Requests",
-    description: "List merge requests filtered by state ('opened', 'closed', 'merged', 'all'), source/target branches, milestone, labels, or search text with token-efficient summaries. Use to discover active PRs, track review queues, or inspect open branches. Do NOT use to inspect unified diffs; use 'get_merge_request_changes' instead.",
+    description: "List merge requests filtered by state ('opened', 'closed', 'merged', 'all'), source/target branches, milestone, labels, author, assignee, reviewer, or search text pushed directly upstream to GitLab's indexed database. Architectural Best Practice: For known MRs, always prefer 'get_merge_request' with exact merge_request_iid rather than broad listing.",
     inputSchema: zodToJsonSchema(ListMergeRequestsSchema),
   },
   {
@@ -209,6 +217,14 @@ export const mergeRequestHandlers = {
     if (parsed.target_branch) q.append("target_branch", parsed.target_branch);
     if (parsed.milestone) q.append("milestone", parsed.milestone);
     if (parsed.labels) q.append("labels", formatLabels(parsed.labels));
+    if (parsed.author_id !== undefined) q.append("author_id", parsed.author_id.toString());
+    if (parsed.author_username) q.append("author_username", parsed.author_username);
+    if (parsed.assignee_id !== undefined) q.append("assignee_id", parsed.assignee_id.toString());
+    if (parsed.assignee_username) q.append("assignee_username", parsed.assignee_username);
+    if (parsed.reviewer_id !== undefined) q.append("reviewer_id", parsed.reviewer_id.toString());
+    if (parsed.reviewer_username) q.append("reviewer_username", parsed.reviewer_username);
+    if (parsed.order_by) q.append("order_by", parsed.order_by);
+    if (parsed.sort) q.append("sort", parsed.sort);
     if (parsed.search) q.append("search", parsed.search);
     const res = await gitlabRequest(`/projects/${pId}/merge_requests?${q.toString()}`);
     const items = (res.items || res).map(summarizeMR);

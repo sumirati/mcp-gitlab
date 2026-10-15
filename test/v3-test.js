@@ -65,4 +65,25 @@ try {
 assert(caughtUnknown, "Should throw on unknown action");
 console.log("[PASS] Unknown action error gracefully guides LLM to gitlab_find_actions");
 
-console.log("\nALL v3.0.0 CHECKS PASSED SUCCESSFULLY!");
+// 8. Protected branches action discovery
+const pbResults = findActions({ query: "protect" });
+console.log(`[PASS] findActions('protect') returned ${pbResults.total_matches} matches`);
+const pbActions = pbResults.actions.map((a) => a.action);
+assert(pbActions.includes("list_protected_branches"), "Missing list_protected_branches");
+assert(pbActions.includes("protect_branch"), "Missing protect_branch");
+assert(pbActions.includes("unprotect_branch"), "Missing unprotect_branch");
+console.log("       Protected branch actions found:", pbActions.join(", "));
+
+// 9. Enterprise system health check discovery
+const healthResults = findActions({ query: "system_health_check" });
+console.log(`[PASS] findActions('system_health_check') returned ${healthResults.total_matches} matches`);
+assert(healthResults.total_matches >= 1, "Missing system_health_check");
+
+// 10. Smart format: markdown output support
+const mdResults = findActions({ query: "runner", format: "markdown" });
+assert(typeof mdResults === "string", "Expected markdown output string");
+assert(mdResults.includes("| Action | Domain | Mutating | Description |"), "Expected markdown table header");
+assert(mdResults.includes("`list_runners`"), "Expected list_runners in markdown table");
+console.log("[PASS] findActions format: 'markdown' rendered valid Markdown table");
+
+console.log("\nALL v3.1.0 CHECKS PASSED SUCCESSFULLY!");

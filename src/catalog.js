@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isReadOnly } from "./client.js";
-import { projectOutput } from "./helpers.js";
+import { projectOutput, jsonToMarkdown } from "./helpers.js";
 
 import { repositoryTools, repositoryHandlers } from "./tools/repositories.js";
 import { branchTools, branchHandlers } from "./tools/branches.js";
@@ -42,6 +42,10 @@ export const DOMAIN_ALIASES = {
   runners: "enterprise",
   mirrors: "enterprise",
   webhooks: "enterprise",
+  system: "enterprise",
+  health: "enterprise",
+  diagnostics: "enterprise",
+  protected_branches: "branches",
 };
 
 // Build flattened catalog map
@@ -96,10 +100,30 @@ function summarizeSchemaParameters(schema) {
   };
 }
 
+function formatActionsAsMarkdown(result) {
+  if (result.message) {
+    let md = `## GitLab Action Catalog\n\n${result.message}\n\n### Available Domains\n\n`;
+    for (const [d, count] of Object.entries(result.available_domains || {})) {
+      md += `- **${d}**: ${count} actions\n`;
+    }
+    return md;
+  }
+
+  let md = `### GitLab Actions (${result.total_matches} total matches, page ${result.page}/${Math.ceil(result.total_matches / result.per_page) || 1})\n\n`;
+  md += `| Action | Domain | Mutating | Description |\n`;
+  md += `| :--- | :--- | :--- | :--- |\n`;
+  for (const a of result.actions) {
+    const mut = a.mutating ? "Yes" : "No";
+    const desc = (a.description || "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+    md += `| \`${a.action}\` | ${a.domain} | ${mut} | ${desc} |\n`;
+  }
+  return md;
+}
+
 /**
  * Search and discover GitLab actions on-demand
  */
-export function findActions({ query, domain, page = 1, per_page = 15 }) {
+export function findActions({ query, domain, page = 1, per_page = 15, format = "json" }) {
   let entries = Array.from(CATALOG.values());
 
   // Filter by read-only mode if active
@@ -120,7 +144,7 @@ export function findActions({ query, domain, page = 1, per_page = 15 }) {
     for (const a of entries) {
       domainCounts[a.domain] = (domainCounts[a.domain] || 0) + 1;
     }
-    return {
+    const overview = {
       message: `GitLab Action Catalog contains ${entries.length} actions across ${Object.keys(domainCounts).length} domains. Query by domain or search keyword to retrieve parameter schemas.`,
       available_domains: domainCounts,
       daily_driver_eager_tools: [
@@ -130,6 +154,7 @@ export function findActions({ query, domain, page = 1, per_page = 15 }) {
       ],
       usage_hint: "Call gitlab_find_actions(query: 'merge request') or gitlab_find_actions(domain: 'pipelines') to inspect parameter signatures.",
     };
+    return format === "markdown" ? formatActionsAsMarkdown(overview) : overview;
   }
 
   // Filter / rank by query
@@ -172,7 +197,7 @@ export function findActions({ query, domain, page = 1, per_page = 15 }) {
   const startIndex = (page - 1) * per_page;
   const paginated = entries.slice(startIndex, startIndex + per_page);
 
-  return {
+  const result = {
     total_matches: total,
     page,
     per_page,
@@ -187,12 +212,14 @@ export function findActions({ query, domain, page = 1, per_page = 15 }) {
       parameters: summarizeSchemaParameters(e.inputSchema),
     })),
   };
+
+  return format === "markdown" ? formatActionsAsMarkdown(result) : result;
 }
 
 /**
  * Execute an action from the catalog with input validation and projection
  */
-export async function executeAction(actionName, params = {}) {
+export async function executeAction(actionName, params = {}, options = {}) {
   const entry = CATALOG.get(actionName);
   if (!entry) {
     const available = Array.from(CATALOG.keys())
@@ -217,7 +244,12 @@ export async function executeAction(actionName, params = {}) {
   try {
     const rawResult = await entry.handler(params || {});
     const projected = projectOutput(rawResult);
-    return projected !== undefined ? projected : rawResult;
+    const finalResult = projected !== undefined ? projected : rawResult;
+    const requestedFormat = options.format || (params && params.format);
+    if (requestedFormat === "markdown") {
+      return jsonToMarkdown(finalResult);
+    }
+    return finalResult;
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(

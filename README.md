@@ -17,30 +17,31 @@ In early MCP servers, dumping 50–100 tools into the client's tool list consume
 - **Glama TDQS Coherence Tier A (5/5)**: By exposing exactly 5 tools to the client, the server sits in the ideal 3–15 tool coherence sweet spot.
 - **Ultra-Lean System Prompt Tax**: Drops schema overhead from ~11,200 tokens to **~450 tokens** (96% reduction), preserving context windows and maximizing LLM prompt-cache hits.
 - **Zero-Hop Hourly Drivers**: The 3 operations developers and agents actually use constantly during pair-programming (`get_file_contents`, `get_project`, `get_commit`) remain eager tools for instant zero-hop execution.
-- **100% Platform Access on Demand**: The entire platform surface of **82 actions across 14 domains** is accessible on-demand via dynamic action discovery (`gitlab_find_actions` $\rightarrow$ `gitlab_execute_action`).
+- **100% Platform Access on Demand**: The entire platform surface of **86 actions across 14 domains** is accessible on-demand via dynamic action discovery (`gitlab_find_actions` $\rightarrow$ `gitlab_execute_action`), supporting both JSON and Markdown output (`format: "json" | "markdown"`).
 - **Resilient Fallback**: If an agent directly invokes any catalog action name (e.g. `list_pipelines`), the server dynamically executes it with full input validation and projection.
 
 ```text
 LLM Prompt Context (~450 tokens total):
-├── 1. gitlab_find_actions(query, [domain])     [Meta Discovery]
-├── 2. gitlab_execute_action(action, params)    [Meta Dynamic Execution]
-├── 3. get_file_contents(projectId, filePath)   [Eager Daily Driver #1]
-├── 4. get_project(projectId)                   [Eager Daily Driver #2]
-└── 5. get_commit(projectId, sha)               [Eager Daily Driver #3]
+├── 1. gitlab_find_actions(query, [domain], [format])     [Meta Discovery]
+├── 2. gitlab_execute_action(action, params, [format])   [Meta Dynamic Execution]
+├── 3. get_file_contents(projectId, filePath)             [Eager Daily Driver #1]
+├── 4. get_project(projectId)                             [Eager Daily Driver #2]
+└── 5. get_commit(projectId, sha)                         [Eager Daily Driver #3]
 
 Under the hood (Dynamic Registry):
-└── 82 Curated Actions across 14 Domains (with 77%–98% token reduction projections)
+└── 86 Curated Actions across 14 Domains (with 77%–98% token reduction projections)
 ```
 
 ---
 
 ## Core Capabilities Across 14 Domains
 
-1. **Enterprise & Self-Hosted Operations** *(New in v3.0.0)*:
+1. **Enterprise Observability & Self-Hosted Operations**:
+   - **System Health Diagnostics**: End-to-end connectivity, token identity verification, and API latency testing (`system_health_check`).
    - **Push Mirrors**: Verify upstream replication to GitHub/GitLab.com (`list_push_mirrors`) and force immediate sync (`trigger_push_mirror_sync`).
    - **CI Runners**: Audit runner health, online/paused status, and tags (`list_runners`, `get_runner_status`).
    - **Webhooks**: Inspect registered automation hooks (`list_project_hooks`).
-2. **Repository & Project Governance**: Project CRUD, group hierarchy resolution (`buggycode/project-name`), branch governance, file reading, and atomic multi-file commits (`push_files`).
+2. **Repository & Branch Governance**: Project CRUD, group hierarchy resolution (`buggycode/project-name`), branch lifecycle, branch protection management (`list_protected_branches`, `protect_branch`, `unprotect_branch`), file reading, and atomic multi-file commits (`push_files`).
 3. **CI/CD Observability**: Query pipelines by status, tail failed job logs (`get_job_trace`) without token blowout, read build artifacts, and inspect JUnit test reports.
 4. **Merge Request Reviews & Diff Discussions**: Two-stage diff inspection, automated lockfile pruning (`package-lock.json`), and inline diff discussions with SHA coordinate resolution.
 5. **Issues & Task Planning**: CRUD issues, track blockers/dependencies (`issue_links`), and add progress notes (`issue_notes`).
@@ -83,8 +84,8 @@ npm start
 | :--- | :---: | :--- | :--- |
 | `GITLAB_PERSONAL_ACCESS_TOKEN` | **Yes** | — | Personal access token with `api` scope. |
 | `GITLAB_API_URL` | No | `https://gitlab.com/api/v4` | Base API URL of your GitLab CE/EE or cloud instance. |
-| `GITLAB_READ_ONLY` | No | `false` | Enable Read-Only safety mode (`true`, `1`, `yes`). Filters out mutating tools and strictly blocks write/modify HTTP requests across all 82 actions. |
-| `GITLAB_EXPOSE_ALL_TOOLS` | No | `false` | Set to `true` (or `GITLAB_EXPOSE_LEGACY_TOOLS=true`) to disable the 5-tool hybrid surface and expose all 82 tools directly on `ListTools` for legacy clients. |
+| `GITLAB_READ_ONLY` | No | `false` | Enable Read-Only safety mode (`true`, `1`, `yes`). Filters out mutating tools and strictly blocks write/modify HTTP requests across all 86 actions. |
+| `GITLAB_EXPOSE_ALL_TOOLS` | No | `false` | Set to `true` (or `GITLAB_EXPOSE_LEGACY_TOOLS=true`) to disable the 5-tool hybrid surface and expose all 86 tools directly on `ListTools` for legacy clients. |
 
 ---
 

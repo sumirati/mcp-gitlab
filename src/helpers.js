@@ -172,31 +172,53 @@ export function summarizeBranch(b) {
 }
 
 export const ACCESS_LEVELS = {
+  no_one: 0,
   guest: 10,
   reporter: 20,
   developer: 30,
   maintainer: 40,
   owner: 50,
+  admin: 60,
 };
 
 export function resolveAccessLevel(level) {
   if (typeof level === "number") return level;
   const key = level.toString().toLowerCase().trim();
-  if (ACCESS_LEVELS[key]) return ACCESS_LEVELS[key];
+  if (ACCESS_LEVELS[key] !== undefined) return ACCESS_LEVELS[key];
   const parsed = parseInt(level, 10);
   if (!isNaN(parsed)) return parsed;
-  throw new Error(`Invalid access_level '${level}'. Expected: guest (10), reporter (20), developer (30), maintainer (40), or owner (50).`);
+  throw new Error(`Invalid access_level '${level}'. Expected: no_one (0), guest (10), reporter (20), developer (30), maintainer (40), owner (50), or admin (60).`);
 }
 
 export function formatAccessLevel(level) {
   const map = {
+    0: "No one",
     10: "Guest",
     20: "Reporter",
     30: "Developer",
     40: "Maintainer",
     50: "Owner",
+    60: "Admin",
   };
   return map[level] ? `${map[level]} (${level})` : `Level ${level}`;
+}
+
+export function summarizeProtectedBranch(pb) {
+  if (!pb) return null;
+  return {
+    id: pb.id,
+    name: pb.name,
+    push_access_levels: pb.push_access_levels?.map((p) => ({
+      access_level: p.access_level,
+      description: p.access_level_description || formatAccessLevel(p.access_level),
+    })) || [],
+    merge_access_levels: pb.merge_access_levels?.map((m) => ({
+      access_level: m.access_level,
+      description: m.access_level_description || formatAccessLevel(m.access_level),
+    })) || [],
+    allow_force_push: Boolean(pb.allow_force_push),
+    code_owner_approval_required: Boolean(pb.code_owner_approval_required),
+  };
 }
 
 export function summarizeMember(m) {
@@ -334,6 +356,55 @@ export function projectOutput(val) {
   }
 
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/**
+ * Converts structured JSON/object responses into clean, compact Markdown
+ */
+export function jsonToMarkdown(data) {
+  if (data === null || data === undefined) return "";
+  if (typeof data !== "object") return String(data);
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) return "_No items returned._";
+    if (typeof data[0] === "object" && data[0] !== null) {
+      const keys = Array.from(new Set(data.flatMap((item) => Object.keys(item))));
+      if (keys.length <= 8) {
+        const header = `| ${keys.join(" | ")} |`;
+        const divider = `| ${keys.map(() => ":---").join(" | ")} |`;
+        const rows = data.map((item) =>
+          `| ${keys
+            .map((k) => {
+              const v = item[k];
+              if (v === null || v === undefined) return "";
+              if (typeof v === "object") return "`" + JSON.stringify(v) + "`";
+              return String(v).replace(/\|/g, "\\|").replace(/\n/g, " ");
+            })
+            .join(" | ")} |`
+        );
+        return [header, divider, ...rows].join("\n");
+      }
+    }
+    return data
+      .map((item) => `- ${typeof item === "object" ? JSON.stringify(item) : item}`)
+      .join("\n");
+  }
+
+  const lines = [];
+  for (const [k, v] of Object.entries(data)) {
+    if (v === null || v === undefined) continue;
+    if (Array.isArray(v)) {
+      lines.push(`### ${k}\n\n` + jsonToMarkdown(v));
+    } else if (typeof v === "object") {
+      lines.push(`**${k}**:`);
+      for (const [subK, subV] of Object.entries(v)) {
+        lines.push(`  - **${subK}**: ${typeof subV === "object" ? JSON.stringify(subV) : subV}`);
+      }
+    } else {
+      lines.push(`- **${k}**: ${v}`);
+    }
+  }
+  return lines.join("\n");
 }
 
 

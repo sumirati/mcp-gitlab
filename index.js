@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { isReadOnly } from "./src/client.js";
 import { zodToJsonSchema } from "./src/schemas.js";
+import { jsonToMarkdown } from "./src/helpers.js";
 import {
   findActions,
   executeAction,
@@ -45,6 +46,11 @@ const FindActionsSchema = z.object({
     .describe("Optional domain to scope the search"),
   page: z.number().optional().default(1).describe("Page number for paginated action results (default: 1)"),
   per_page: z.number().optional().default(15).describe("Number of actions per page (default: 15)"),
+  format: z
+    .enum(["json", "markdown"])
+    .optional()
+    .default("json")
+    .describe("Output format: 'json' (default, structured object) or 'markdown' (compact human/LLM-readable text table)"),
 });
 
 const ExecuteActionSchema = z.object({
@@ -61,6 +67,11 @@ const ExecuteActionSchema = z.object({
     .record(z.any())
     .optional()
     .describe("Alias for parameters (for cross-client compatibility)"),
+  format: z
+    .enum(["json", "markdown"])
+    .optional()
+    .default("json")
+    .describe("Output format: 'json' (default) or 'markdown' (compact human/LLM-readable text)"),
 });
 
 const META_TOOLS = [
@@ -99,15 +110,35 @@ function shouldExposeAllTools() {
   );
 }
 
-function formatResult(result) {
+function formatResult(result, format = "json") {
   if (result && Array.isArray(result.content)) {
     return result;
+  }
+  if (typeof result === "string") {
+    return {
+      content: [
+        {
+          type: "text",
+          text: result,
+        },
+      ],
+    };
+  }
+  if (format === "markdown") {
+    return {
+      content: [
+        {
+          type: "text",
+          text: jsonToMarkdown(result),
+        },
+      ],
+    };
   }
   return {
     content: [
       {
         type: "text",
-        text: typeof result === "string" ? result : JSON.stringify(result, null, 2),
+        text: JSON.stringify(result, null, 2),
       },
     ],
   };
@@ -116,7 +147,7 @@ function formatResult(result) {
 const server = new Server(
   {
     name: "@sumirati/mcp-gitlab",
-    version: "3.0.1",
+    version: "3.1.0",
   },
   {
     capabilities: {
@@ -144,19 +175,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "gitlab_find_actions") {
       const parsed = FindActionsSchema.parse(args || {});
       const result = findActions(parsed);
-      return formatResult(result);
+      return formatResult(result, parsed.format);
     }
 
     if (name === "gitlab_execute_action") {
       const parsed = ExecuteActionSchema.parse(args || {});
       const actionParams = parsed.parameters || parsed.params || {};
-      const result = await executeAction(parsed.action, actionParams);
-      return formatResult(result);
+      const result = await executeAction(parsed.action, actionParams, { format: parsed.format });
+      return formatResult(result, parsed.format);
     }
 
     // Direct invocation: handles eager tools AND graceful fallback if any catalog action is called directly
     const result = await executeAction(name, args || {});
-    return formatResult(result);
+    return formatResult(result, args?.format);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(
@@ -173,7 +204,7 @@ async function runServer() {
   const modeStr = isReadOnly() ? " [READ-ONLY MODE: mutating tools disabled]" : "";
   const legacyStr = shouldExposeAllTools() ? " [LEGACY MODE: all tools exposed]" : " [HYBRID 5-TOOL MODE]";
   console.error(
-    `GitLab MCP Server v3.0.1 running on stdio (${getCatalogSize()} actions in catalog)${modeStr}${legacyStr}`
+    `GitLab MCP Server v3.1.0 running on stdio (${getCatalogSize()} actions in catalog)${modeStr}${legacyStr}`
   );
 }
 

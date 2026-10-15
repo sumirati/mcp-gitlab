@@ -12,8 +12,11 @@ export const ListPipelinesSchema = ProjectParamsSchema.extend({
     .optional()
     .describe("Filter pipelines by execution status"),
   sha: z.string().optional().describe("Filter pipelines by commit SHA"),
+  username: z.string().optional().describe("Filter pipelines by the username of the user who triggered it directly pushed upstream"),
+  order_by: z.enum(["id", "status", "ref", "updated_at"]).optional().default("id").describe("Order pipelines by id, status, ref, or updated_at"),
+  sort: z.enum(["asc", "desc"]).optional().default("desc").describe("Sort direction (default: desc)"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().optional().default(20).describe("Number of pipelines per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of pipelines per page (default: 20, max: 100)"),
 });
 
 export const GetPipelineSchema = ProjectParamsSchema.extend({
@@ -40,6 +43,8 @@ export const ListPipelineJobsSchema = ProjectParamsSchema.extend({
     .enum(["created", "pending", "running", "failed", "success", "canceled", "skipped", "manual"])
     .optional()
     .describe("Filter jobs by execution status"),
+  page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
+  per_page: z.number().min(1).max(100).optional().default(50).describe("Number of jobs per page (default: 50, max: 100)"),
 });
 
 export const GetJobSchema = ProjectParamsSchema.extend({
@@ -130,6 +135,9 @@ export const pipelineHandlers = {
     if (parsed.ref) q.append("ref", parsed.ref);
     if (parsed.status) q.append("status", parsed.status);
     if (parsed.sha) q.append("sha", parsed.sha);
+    if (parsed.username) q.append("username", parsed.username);
+    if (parsed.order_by) q.append("order_by", parsed.order_by);
+    if (parsed.sort) q.append("sort", parsed.sort);
     const res = await gitlabRequest(`/projects/${pId}/pipelines?${q.toString()}`);
     const items = (res.items || res).map(summarizePipeline);
     return res.pagination ? { pagination: res.pagination, pipelines: items } : items;
@@ -157,8 +165,12 @@ export const pipelineHandlers = {
   list_pipeline_jobs: async (args) => {
     const parsed = ListPipelineJobsSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
-    const q = parsed.scope ? `?scope=${encodeURIComponent(parsed.scope)}` : "";
-    const res = await gitlabRequest(`/projects/${pId}/pipelines/${parsed.pipeline_id}/jobs${q}`);
+    const q = new URLSearchParams({
+      page: parsed.page.toString(),
+      per_page: parsed.per_page.toString(),
+    });
+    if (parsed.scope) q.append("scope", parsed.scope);
+    const res = await gitlabRequest(`/projects/${pId}/pipelines/${parsed.pipeline_id}/jobs?${q.toString()}`);
     return (res.items || res).map(summarizeJob);
   },
 

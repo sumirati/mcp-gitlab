@@ -2,13 +2,13 @@ import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
 import { gitlabRequest, formatProjectId } from "../client.js";
 import { ProjectParamsSchema } from "../schemas.js";
-import { summarizeBranch } from "../helpers.js";
+import { summarizeBranch, summarizeProtectedBranch, resolveAccessLevel } from "../helpers.js";
 
 // Schemas
 export const ListBranchesSchema = ProjectParamsSchema.extend({
   search: z.string().optional().describe("Search query to filter branch names (e.g. 'feature')"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().optional().default(20).describe("Number of branches per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of branches per page (default: 20, max: 100)"),
 });
 
 export const GetBranchSchema = ProjectParamsSchema.extend({
@@ -22,6 +22,44 @@ export const CreateBranchSchema = ProjectParamsSchema.extend({
 
 export const DeleteBranchSchema = ProjectParamsSchema.extend({
   branch: z.string().describe("Name of the branch to delete"),
+});
+
+export const ListProtectedBranchesSchema = ProjectParamsSchema.extend({
+  search: z.string().optional().describe("Search query to filter protected branch names or wildcard rules"),
+  page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of branches per page (default: 20, max: 100)"),
+});
+
+export const ProtectBranchSchema = ProjectParamsSchema.extend({
+  name: z.string().describe("Name of the branch or wildcard (e.g. 'main', 'release/*') to protect"),
+  push_access_level: z
+    .union([z.number(), z.enum(["no_one", "developer", "maintainer", "owner", "admin"])])
+    .optional()
+    .default("maintainer")
+    .describe("Access level allowed to push (no_one: 0, developer: 30, maintainer: 40)"),
+  merge_access_level: z
+    .union([z.number(), z.enum(["no_one", "developer", "maintainer", "owner", "admin"])])
+    .optional()
+    .default("maintainer")
+    .describe("Access level allowed to merge (no_one: 0, developer: 30, maintainer: 40)"),
+  unprotect_access_level: z
+    .union([z.number(), z.enum(["developer", "maintainer", "owner", "admin"])])
+    .optional()
+    .describe("Access level allowed to unprotect (developer: 30, maintainer: 40)"),
+  allow_force_push: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Allow force pushes to this protected branch (default: false)"),
+  code_owner_approval_required: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Require code owner approval before merging (default: false)"),
+});
+
+export const UnprotectBranchSchema = ProjectParamsSchema.extend({
+  name: z.string().describe("Name of the protected branch or wildcard rule to unprotect"),
 });
 
 // Tool Definitions
@@ -50,6 +88,26 @@ export const branchTools = [
     title: "Delete Branch",
     description: "Delete an existing Git branch from a project repository. Use to clean up merged or obsolete feature branches. Side effect: DESTRUCTIVE. Accidental deletion of the project's default branch is actively blocked for safety. Do NOT use to delete tags; use Git tag management instead.",
     inputSchema: zodToJsonSchema(DeleteBranchSchema),
+    mutating: true,
+  },
+  {
+    name: "list_protected_branches",
+    title: "List Protected Branches",
+    description: "List protected branch rules configured in a GitLab project, showing push/merge access levels, force-push permission, and code owner approval requirements. Use to audit branch governance and merge restrictions.",
+    inputSchema: zodToJsonSchema(ListProtectedBranchesSchema),
+  },
+  {
+    name: "protect_branch",
+    title: "Protect Branch",
+    description: "Configure branch protection rules for a branch or wildcard pattern (e.g. 'main', 'release/*'). Controls push access levels, merge access levels, force push permission, and code owner approval.",
+    inputSchema: zodToJsonSchema(ProtectBranchSchema),
+    mutating: true,
+  },
+  {
+    name: "unprotect_branch",
+    title: "Unprotect Branch",
+    description: "Remove branch protection rules from a specified branch or wildcard pattern. Side effect: DESTRUCTIVE. Removes push and merge access restrictions from the target branch.",
+    inputSchema: zodToJsonSchema(UnprotectBranchSchema),
     mutating: true,
   },
 ];
@@ -102,6 +160,48 @@ export const branchHandlers = {
     }
 
     return await gitlabRequest(`/projects/${pId}/repository/branches/${encodedBranch}`, {
+      method: "DELETE",
+    });
+  },
+
+  list_protected_branches: async (args) => {
+    const parsed = ListProtectedBranchesSchema.parse(args);
+    const pId = formatProjectId(parsed.project_id);
+    const q = new URLSearchParams({
+      page: parsed.page.toString(),
+      per_page: parsed.per_page.toString(),
+    });
+    if (parsed.search) q.append("search", parsed.search);
+    const res = await gitlabRequest(`/projects/${pId}/protected_branches?${q.toString()}`);
+    const items = (res.items || res).map(summarizeProtectedBranch);
+    return res.pagination ? { pagination: res.pagination, protected_branches: items } : items;
+  },
+
+  protect_branch: async (args) => {
+    const parsed = ProtectBranchSchema.parse(args);
+    const pId = formatProjectId(parsed.project_id);
+    const body = {
+      name: parsed.name,
+      push_access_level: resolveAccessLevel(parsed.push_access_level),
+      merge_access_level: resolveAccessLevel(parsed.merge_access_level),
+      allow_force_push: parsed.allow_force_push,
+      code_owner_approval_required: parsed.code_owner_approval_required,
+    };
+    if (parsed.unprotect_access_level !== undefined) {
+      body.unprotect_access_level = resolveAccessLevel(parsed.unprotect_access_level);
+    }
+    const res = await gitlabRequest(`/projects/${pId}/protected_branches`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    return summarizeProtectedBranch(res);
+  },
+
+  unprotect_branch: async (args) => {
+    const parsed = UnprotectBranchSchema.parse(args);
+    const pId = formatProjectId(parsed.project_id);
+    const encodedName = encodeURIComponent(parsed.name);
+    return await gitlabRequest(`/projects/${pId}/protected_branches/${encodedName}`, {
       method: "DELETE",
     });
   },

@@ -10,8 +10,10 @@ export const ListCommitsSchema = ProjectParamsSchema.extend({
   since: z.string().optional().describe("Only commits after or on this date (ISO 8601 or YYYY-MM-DD)"),
   until: z.string().optional().describe("Only commits before or on this date"),
   path: z.string().optional().describe("File path to filter commit history for (e.g. 'src/auth.js')"),
-  page: z.number().optional().default(1),
-  per_page: z.number().optional().default(20),
+  author: z.string().optional().describe("Filter commits by author name or email directly pushed upstream"),
+  order: z.enum(["default", "topo"]).optional().default("default").describe("Order commits by commit date (default) or topological order"),
+  page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of commits per page (default: 20, max: 100)"),
 });
 
 export const GetCommitSchema = ProjectParamsSchema.extend({
@@ -26,7 +28,7 @@ export const commitTools = [
   {
     name: "list_commits",
     title: "List Commits",
-    description: "List chronological commit history for a project, branch, or specific file path with author metadata and commit messages. Use when reviewing recent changes or finding commit SHAs. Do NOT use to inspect complete file diffs; use 'get_commit' or 'get_merge_request_changes' instead.",
+    description: "List chronological commit history for a project, branch, or specific file path with author metadata and commit messages. Filter upstream by ref_name, author, path, and date range. To inspect exact code changes of a specific commit SHA, use 'get_commit' instead.",
     inputSchema: zodToJsonSchema(ListCommitsSchema),
   },
   {
@@ -50,6 +52,8 @@ export const commitHandlers = {
     if (parsed.since) q.append("since", parsed.since);
     if (parsed.until) q.append("until", parsed.until);
     if (parsed.path) q.append("path", parsed.path);
+    if (parsed.author) q.append("author", parsed.author);
+    if (parsed.order) q.append("order", parsed.order);
 
     const res = await gitlabRequest(`/projects/${pId}/repository/commits?${q.toString()}`);
     const items = (res.items || res).map(summarizeCommit);

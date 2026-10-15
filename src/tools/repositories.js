@@ -9,7 +9,7 @@ export const SearchRepositoriesSchema = z.object({
   search: z.string().optional().describe("Search query to filter project names/descriptions (e.g. 'my-service')"),
   group: z.union([z.string(), z.number()]).optional().describe("Optional group ID or path (e.g. 'buggycode' or 3) to filter repositories strictly within that group"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().optional().default(20).describe("Number of results per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of results per page (default: 20, max: 100)"),
 });
 
 export const GetProjectSchema = ProjectParamsSchema.extend({
@@ -83,7 +83,7 @@ export const repositoryTools = [
   {
     name: "search_repositories",
     title: "Search Repositories",
-    description: "Search for GitLab projects and repositories across the instance or scoped to a specific group namespace. Use when locating projects by keyword or discovery before project-scoped work. Do NOT use to inspect project configuration or default branches; use 'get_project' instead once a project ID or path is known.",
+    description: "Search for GitLab projects and repositories across the instance or scoped to a specific group namespace (recommended to reduce instance load). Capped at 100 per page. If project_id or path_with_namespace is already known, look up directly via 'get_project'.",
     inputSchema: zodToJsonSchema(SearchRepositoriesSchema),
   },
   {
