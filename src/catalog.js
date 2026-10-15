@@ -46,6 +46,8 @@ export const DOMAIN_ALIASES = {
   health: "enterprise",
   diagnostics: "enterprise",
   protected_branches: "branches",
+  groups: "user",
+  group: "user",
 };
 
 // Build flattened catalog map

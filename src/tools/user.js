@@ -18,8 +18,16 @@ export const ListMyGroupsSchema = z.object({
   search: z.string().optional().describe("Search query to filter group names/paths"),
   owned: z.boolean().optional().describe("If true, limits to groups explicitly owned by the current user"),
   min_access_level: z.enum(["guest", "reporter", "developer", "maintainer", "owner"]).optional().describe("Minimum access level in the group"),
-  page: z.number().optional().default(1),
-  per_page: z.number().optional().default(20),
+  page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of groups per page (default: 20, max: 100)"),
+});
+
+export const CreateGroupSchema = z.object({
+  name: z.string().describe("The name of the group (e.g. 'Platform Team' or 'Subsystem')"),
+  path: z.string().optional().describe("The path/slug of the group (e.g. 'platform-team'). If omitted, will be auto-generated from name."),
+  description: z.string().optional().describe("Short description of the group's purpose"),
+  visibility: z.enum(["private", "internal", "public"]).optional().default("internal").describe("Visibility level: 'private', 'internal', or 'public' (default: 'internal')"),
+  parent_id: z.number().optional().describe("Parent group numeric ID to create this group as a subgroup"),
 });
 
 export const GetGroupSchema = z.object({
@@ -32,8 +40,8 @@ export const ListGroupProjectsSchema = z.object({
   include_subgroups: z.boolean().optional().default(true).describe("Include projects in subgroups (default: true)"),
   search: z.string().optional().describe("Search query within group projects"),
   visibility: z.enum(["private", "internal", "public"]).optional().describe("Filter by project visibility"),
-  page: z.number().optional().default(1),
-  per_page: z.number().optional().default(20),
+  page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
+  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of projects per page (default: 20, max: 100)"),
 });
 
 export const ListMyProjectsSchema = z.object({
@@ -62,6 +70,13 @@ export const userTools = [
     title: "List User Groups",
     description: "List GitLab groups and parent organizations where the authenticated user is an active member or owner with access roles. Use to discover namespace paths available for project creation or access audits. Do NOT use to inspect project lists directly; use 'list_group_projects' instead.",
     inputSchema: zodToJsonSchema(ListMyGroupsSchema),
+  },
+  {
+    name: "create_group",
+    title: "Create Group / Subgroup",
+    description: "Create a new GitLab group or nested subgroup (using parent_id). Use to organize projects, manage team namespaces, and establish shared permissions. Side effect: creates a new group on GitLab immediately.",
+    inputSchema: zodToJsonSchema(CreateGroupSchema),
+    mutating: true,
   },
   {
     name: "get_group",
@@ -114,6 +129,22 @@ export const userHandlers = {
     const res = await gitlabRequest(`/groups?${q.toString()}`);
     const items = (res.items || res).map(summarizeGroup);
     return res.pagination ? { pagination: res.pagination, groups: items } : items;
+  },
+
+  create_group: async (args) => {
+    const parsed = CreateGroupSchema.parse(args);
+    const body = {
+      name: parsed.name,
+      path: parsed.path || parsed.name.toLowerCase().replace(/[^a-z0-9_-]/g, "-").replace(/^-+|-+$/g, ""),
+      visibility: parsed.visibility,
+      ...(parsed.description ? { description: parsed.description } : {}),
+      ...(parsed.parent_id !== undefined ? { parent_id: parsed.parent_id } : {}),
+    };
+    const res = await gitlabRequest("/groups", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    return summarizeGroup(res);
   },
 
   get_group: async (args) => {

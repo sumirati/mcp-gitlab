@@ -81,6 +81,12 @@ const healthResults = findActions({ query: "system_health_check" });
 console.log(`[PASS] findActions('system_health_check') returned ${healthResults.total_matches} matches`);
 assert(healthResults.total_matches >= 1, "Missing system_health_check");
 
+// 9b. Group management action discovery
+const groupResults = findActions({ query: "create_group" });
+console.log(`[PASS] findActions('create_group') returned ${groupResults.total_matches} matches`);
+assert(groupResults.actions.map((a) => a.action).includes("create_group"), "Missing create_group");
+assert.strictEqual(groupResults.actions[0].mutating, true, "create_group must be marked mutating");
+
 // 10. Smart format: markdown output support
 const mdResults = findActions({ query: "runner", format: "markdown" });
 assert(typeof mdResults === "string", "Expected markdown output string");
