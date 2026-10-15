@@ -7,12 +7,12 @@
     "url": "https://github.com/sumirati/mcp-gitlab",
     "source": "github"
   },
-  "version": "1.0.1",
+  "version": "2.0.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@sumirati/mcp-gitlab",
-      "version": "1.0.1",
+      "version": "2.0.0",
       "transport": {
         "type": "stdio"
       },
@@ -27,6 +27,12 @@
           "name": "GITLAB_API_URL",
           "description": "GitLab instance API URL (defaults to https://gitlab.com/api/v4)",
           "default": "https://gitlab.com/api/v4",
+          "isRequired": false
+        },
+        {
+          "name": "GITLAB_READ_ONLY",
+          "description": "Enable read-only safety mode (true/false, default: false)",
+          "default": "false",
           "isRequired": false
         }
       ]
