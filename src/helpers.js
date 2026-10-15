@@ -252,4 +252,45 @@ export async function resolveNamespaceId(namespace) {
   throw new Error(`GitLab namespace/group '${namespace}' not found`);
 }
 
+export function summarizeMirror(m) {
+  return {
+    id: m.id,
+    url: m.url ? m.url.replace(/:[^@:]*@/, ":***@") : null,
+    enabled: m.enabled,
+    update_status: m.update_status,
+    last_error: m.last_error || null,
+    last_update_at: m.last_update_at || null,
+    last_successful_update_at: m.last_successful_update_at || null,
+  };
+}
+
+export function summarizeRunner(r) {
+  return {
+    id: r.id,
+    description: r.description,
+    ip_address: r.ip_address,
+    active: r.active,
+    paused: r.paused,
+    is_shared: r.is_shared,
+    runner_type: r.runner_type,
+    status: r.status,
+    online: r.online,
+    contacted_at: r.contacted_at,
+  };
+}
+
+export function summarizeHook(h) {
+  return {
+    id: h.id,
+    url: h.url,
+    push_events: h.push_events,
+    tag_push_events: h.tag_push_events,
+    merge_requests_events: h.merge_requests_events,
+    issues_events: h.issues_events,
+    pipeline_events: h.pipeline_events,
+    enable_ssl_verification: h.enable_ssl_verification,
+    created_at: h.created_at,
+  };
+}
+
 
