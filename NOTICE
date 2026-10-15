@@ -28,5 +28,6 @@ This product includes software and schemas developed by third parties:
    https://docs.gitlab.com/ee/api/rest/
 
 Community architectural patterns and workflows evaluated:
+- jmrplens/gitlab-mcp-server (https://github.com/jmrplens/gitlab-mcp-server) — Dynamic action discovery and meta-dispatcher pattern concepts
 - Vijay-Duke/mcp-gitlab (https://github.com/Vijay-Duke/mcp-gitlab)
 - zereight/gitlab-mcp (https://github.com/zereight/gitlab-mcp)

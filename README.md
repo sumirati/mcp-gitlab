@@ -354,8 +354,8 @@ The server exposes **77 tools** organized across 13 functional domains (41 read-
 #### Tier 3: Integrations & Administration
 - [ ] **Project Webhooks & Integrations**: List and configure project webhooks (`list_project_hooks`, `create_project_hook`) for event notifications.
 
-#### Transport & Deployment
 - [ ] **Streamable HTTP / SSE Remote Transport**: Support running as a remote/hosted MCP service alongside the default local stdio transport.
+- [ ] **Upstream Contribution to `jmrplens/gitlab-mcp-server`**: Propose and contribute our token-saving output projection filters (77%–98% payload compression) upstream to the `jmrplens` Go project, helping the broader ecosystem reduce context window bloat.
 
 ---
 
@@ -376,6 +376,7 @@ This project incorporates architectural concepts, schemas, and patterns from:
 - **[`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk)** (MIT License) — Copyright (c) Anthropic, PBC.
 - **[`zod`](https://github.com/colinhacks/zod)** (MIT License) — Colin McDonnell.
 - **GitLab REST API v4** — GitLab, PBC.
+- **[`jmrplens/gitlab-mcp-server`](https://github.com/jmrplens/gitlab-mcp-server)** — Dynamic action discovery and meta-dispatcher pattern concepts.
 - Architectural patterns evaluated from `Vijay-Duke/mcp-gitlab` and `zereight/gitlab-mcp`.
 
 See [`NOTICE`](./NOTICE) for complete third-party attribution details.
