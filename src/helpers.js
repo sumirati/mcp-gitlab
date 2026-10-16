@@ -352,47 +352,49 @@ export function summarizeHook(h) {
   };
 }
 
+const NOISE_KEYS = new Set([
+  "_links",
+  "avatar_url",
+  "gravatar_id",
+  "node_id",
+  "site_admin",
+  "starred_url",
+  "subscriptions_url",
+  "organizations_url",
+  "repos_url",
+  "events_url",
+  "received_events_url",
+  "gists_url",
+  "following_url",
+  "followers_url",
+]);
+
 /**
  * Universal token compression filter that strips redundant metadata:
  * avatar URLs, Gravatar IDs, internal API links, and null/empty fields.
- * Preserves high-signal functional data (IDs, names, diffs, bodies, states, timestamps).
+ * Preserves high-signal functional data (IDs, names, diffs, bodies, states, timestamps, html_url, web_url).
+ * Hardened with maxDepth recursion guard (32) and preserves empty root collections.
  */
-export function projectOutput(val) {
+export function projectOutput(val, depth = 0, maxDepth = 32) {
   if (val === null || val === undefined) return undefined;
   if (typeof val !== "object") return val;
+  if (depth >= maxDepth) return val;
 
   if (Array.isArray(val)) {
-    return val.map(projectOutput).filter((item) => item !== undefined);
+    return val.map((item) => projectOutput(item, depth + 1, maxDepth)).filter((item) => item !== undefined);
   }
 
   const result = {};
   for (const [k, v] of Object.entries(val)) {
-    if (
-      k === "_links" ||
-      k === "avatar_url" ||
-      k === "gravatar_id" ||
-      k === "node_id" ||
-      k === "site_admin" ||
-      k === "starred_url" ||
-      k === "subscriptions_url" ||
-      k === "organizations_url" ||
-      k === "repos_url" ||
-      k === "events_url" ||
-      k === "received_events_url" ||
-      k === "gists_url" ||
-      k === "following_url" ||
-      k === "followers_url"
-    ) {
-      continue;
-    }
-
-    const cleaned = projectOutput(v);
+    if (NOISE_KEYS.has(k)) continue;
+    if (k === "url" && typeof v === "string" && (v.includes("/api/v4") || v.includes("api.github.com"))) continue;
+    const cleaned = projectOutput(v, depth + 1, maxDepth);
     if (cleaned !== undefined && cleaned !== null && cleaned !== "") {
       result[k] = cleaned;
     }
   }
 
-  return Object.keys(result).length > 0 ? result : undefined;
+  return result;
 }
 
 /**

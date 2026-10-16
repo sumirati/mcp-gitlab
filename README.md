@@ -261,6 +261,24 @@ All 82 actions feature strict input validation and field-mask projections (77%â€
 
 ---
 
+## Roadmap
+
+### Upcoming (v3.2)
+- [x] Upstream indexed filtering & strict pagination caps (`state`, `labels`, `milestone`, `author_id`, `assignee_id`)
+- [x] Client error resilience (401 probe disambiguation, 403 insufficient scope, 429 rate limit backoff, 201 ghost write guard)
+- [x] Hardened output projection with recursion depth guard (`maxDepth = 32`) and empty collection preservation
+- [x] Nested subgroup hierarchy management (`create_group` with `parent_id`)
+- [ ] Pre-flight mergeability & conflict verification (`get_mergeability`)
+- [ ] Token scope self-auditing & permission pre-flight
+
+### Future Horizons (v3.x)
+- [ ] Remote Transports: Streamable SSE and HTTP remote server modes
+- [ ] Scoped GraphQL query engine for relational deep inspections
+- [ ] DevSecOps vulnerability & secret scanning alert queries
+- [ ] Scoped & rate-guarded code search within project repositories
+
+---
+
 ## Acknowledgements & Lineage
 
 This project incorporates architectural concepts, schemas, and patterns from:

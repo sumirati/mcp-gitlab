@@ -95,4 +95,40 @@ try {
   global.fetch = originalFetch;
 }
 
-console.log("ALL GITLAB CLIENT RESILIENCE TESTS PASSED!\n");
+// Test 6: projectOutput hardening (html_url, web_url, empty collections, depth guard)
+import { projectOutput } from "../src/helpers.js";
+
+// Verify html_url and web_url preservation
+const samplePayload = {
+  id: 101,
+  html_url: "https://gitlab.example.com/releases/v1",
+  web_url: "https://gitlab.example.com/project/issues/1",
+  node_id: "MDQ6VXNlcjE=",
+  avatar_url: "https://gitlab.example.com/avatar.png",
+  url: "https://gitlab.example.com/api/v4/projects/1",
+};
+const cleaned = projectOutput(samplePayload);
+assert.strictEqual(cleaned.html_url, "https://gitlab.example.com/releases/v1", "html_url must be preserved");
+assert.strictEqual(cleaned.web_url, "https://gitlab.example.com/project/issues/1", "web_url must be preserved");
+assert.strictEqual(cleaned.avatar_url, undefined, "avatar_url must be stripped");
+assert.strictEqual(cleaned.node_id, undefined, "node_id must be stripped");
+assert.strictEqual(cleaned.url, undefined, "internal API url must be stripped");
+console.log("[PASS] projectOutput preserves html_url and web_url while stripping noise keys");
+
+// Verify empty root collections are preserved
+assert.deepStrictEqual(projectOutput({}), {}, "Empty root object must be preserved as {}");
+assert.deepStrictEqual(projectOutput([]), [], "Empty root array must be preserved as []");
+console.log("[PASS] projectOutput preserves empty root collections");
+
+// Verify recursion depth guard (maxDepth = 32)
+let deepObj = { level: 0 };
+let current = deepObj;
+for (let i = 1; i <= 40; i++) {
+  current.child = { level: i };
+  current = current.child;
+}
+const depthTested = projectOutput(deepObj, 0, 32);
+assert(depthTested !== undefined, "Deep object should not throw call-stack exhaustion");
+console.log("[PASS] projectOutput recursion depth guard (maxDepth = 32) verified");
+
+console.log("ALL GITLAB CLIENT RESILIENCE & PROJECTION TESTS PASSED!\n");
