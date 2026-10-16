@@ -128,7 +128,7 @@ function formatResult(result) {
 const server = new Server(
   {
     name: "@sumirati/mcp-gitlab",
-    version: "3.1.0",
+    version: "3.2.0",
   },
   {
     capabilities: {
@@ -185,7 +185,7 @@ async function runServer() {
   const modeStr = isReadOnly() ? " [READ-ONLY MODE: mutating tools disabled]" : "";
   const legacyStr = shouldExposeAllTools() ? " [LEGACY MODE: all tools exposed]" : " [HYBRID 5-TOOL MODE]";
   console.error(
-    `GitLab MCP Server v3.1.0 running on stdio (${getCatalogSize()} actions in catalog)${modeStr}${legacyStr}`
+    `GitLab MCP Server v3.2.0 running on stdio (${getCatalogSize()} actions in catalog)${modeStr}${legacyStr}`
   );
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "@sumirati/mcp-gitlab",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Modern 2026 AI-native Model Context Protocol (MCP) server for GitLab API v4 with dynamic 2-step action discovery, 5-tool lean surface, and 70%+ token-reduction output projection",
   "main": "index.js",
   "type": "module",

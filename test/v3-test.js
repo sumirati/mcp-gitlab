@@ -18,7 +18,7 @@ import { ListCommitsSchema } from "../src/tools/commits.js";
 import { ListMergeRequestsSchema } from "../src/tools/merge-requests.js";
 import { syncReadme } from "../scripts/gen-docs.js";
 
-console.log("--- Starting @sumirati/mcp-gitlab v3.1.0 Architecture Validation ---");
+console.log("--- Starting @sumirati/mcp-gitlab v3.2.0 Architecture Validation ---");
 
 // 1. Catalog count check (exact: 90 actions across 14 domains)
 const catalogSize = getCatalogSize();
@@ -496,4 +496,4 @@ if (hasPublisher) {
   console.log("[SKIP] mcp-publisher not found in PATH, skipping live remote registry check");
 }
 
-console.log("\nALL @sumirati/mcp-gitlab v3.1.0 CHECKS PASSED SUCCESSFULLY!");
+console.log("\nALL @sumirati/mcp-gitlab v3.2.0 CHECKS PASSED SUCCESSFULLY!");

@@ -7,12 +7,12 @@
     "url": "https://github.com/sumirati/mcp-gitlab",
     "source": "github"
   },
-  "version": "3.1.0",
+  "version": "3.2.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@sumirati/mcp-gitlab",
-      "version": "3.1.0",
+      "version": "3.2.0",
       "transport": {
         "type": "stdio"
       },
