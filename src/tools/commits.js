@@ -12,6 +12,7 @@ export const ListCommitsSchema = ProjectParamsSchema.extend({
   path: z.string().optional().describe("File path to filter commit history for (e.g. 'src/auth.js')"),
   author: z.string().optional().describe("Filter commits by author name or email directly pushed upstream"),
   order: z.enum(["default", "topo"]).optional().default("default").describe("Order commits by commit date (default) or topological order"),
+  with_message: z.boolean().optional().default(false).describe("If true, includes full multi-paragraph commit message body. Default is false (headline only) to conserve tokens."),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
   per_page: z.number().min(1).max(100).optional().default(20).describe("Number of commits per page (default: 20, max: 100)"),
 });
@@ -56,7 +57,7 @@ export const commitHandlers = {
     if (parsed.order) q.append("order", parsed.order);
 
     const res = await gitlabRequest(`/projects/${pId}/repository/commits?${q.toString()}`);
-    const items = (res.items || res).map(summarizeCommit);
+    const items = (res.items || res).map((c) => summarizeCommit(c, { full_message: parsed.with_message }));
     return res.pagination ? { pagination: res.pagination, commits: items } : items;
   },
 

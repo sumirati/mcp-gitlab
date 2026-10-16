@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
 import { gitlabRequest, formatProjectId } from "../client.js";
 import { ProjectParamsSchema } from "../schemas.js";
+import { summarizeRelease, summarizeTag } from "../helpers.js";
 
 // Schemas
 export const ListReleasesSchema = ProjectParamsSchema.extend({
@@ -85,13 +86,15 @@ export const releaseHandlers = {
       sort: parsed.sort,
     });
     const res = await gitlabRequest(`/projects/${pId}/releases?${q.toString()}`);
-    return res.items || res;
+    const items = (res.items || res).map(summarizeRelease);
+    return res.pagination ? { pagination: res.pagination, releases: items } : items;
   },
 
   get_release: async (args) => {
     const parsed = GetReleaseSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
-    return await gitlabRequest(`/projects/${pId}/releases/${encodeURIComponent(parsed.tag_name)}`);
+    const res = await gitlabRequest(`/projects/${pId}/releases/${encodeURIComponent(parsed.tag_name)}`);
+    return summarizeRelease(res);
   },
 
   create_release: async (args) => {
@@ -104,10 +107,11 @@ export const releaseHandlers = {
       ...(parsed.ref ? { ref: parsed.ref } : {}),
       ...(parsed.milestones ? { milestones: parsed.milestones } : {}),
     };
-    return await gitlabRequest(`/projects/${pId}/releases`, {
+    const res = await gitlabRequest(`/projects/${pId}/releases`, {
       method: "POST",
       body: JSON.stringify(body),
     });
+    return summarizeRelease(res);
   },
 
   list_tags: async (args) => {
@@ -121,15 +125,17 @@ export const releaseHandlers = {
     });
     if (parsed.search) q.append("search", parsed.search);
     const res = await gitlabRequest(`/projects/${pId}/repository/tags?${q.toString()}`);
-    return res.items || res;
+    const items = (res.items || res).map(summarizeTag);
+    return res.pagination ? { pagination: res.pagination, tags: items } : items;
   },
 
   create_tag: async (args) => {
     const parsed = CreateTagSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
-    return await gitlabRequest(`/projects/${pId}/repository/tags`, {
+    const res = await gitlabRequest(`/projects/${pId}/repository/tags`, {
       method: "POST",
       body: JSON.stringify(parsed),
     });
+    return summarizeTag(res);
   },
 };

@@ -26,8 +26,8 @@ assert.deepStrictEqual(eagerNames, ["get_commit", "get_file_contents", "get_proj
 console.log("       Eager tools:", eagerNames.join(", "));
 
 // 3. Find actions - runner search
-const runnerResults = findActions({ query: "runner" });
-console.log(`[PASS] findActions('runner') returned ${runnerResults.total_matches} matches`);
+const runnerResults = findActions({ query: "runner", format: "json" });
+console.log(`[PASS] findActions('runner', format: 'json') returned ${runnerResults.total_matches} matches`);
 assert(runnerResults.total_matches >= 2, "Expected at least 2 runner actions");
 const runnerActions = runnerResults.actions.map((a) => a.action);
 assert(runnerActions.includes("list_runners"), "Missing list_runners");
@@ -35,8 +35,8 @@ assert(runnerActions.includes("get_runner_status"), "Missing get_runner_status")
 console.log("       Runner actions found:", runnerActions.join(", "));
 
 // 4. Find actions - mirror search
-const mirrorResults = findActions({ query: "mirror" });
-console.log(`[PASS] findActions('mirror') returned ${mirrorResults.total_matches} matches`);
+const mirrorResults = findActions({ query: "mirror", format: "json" });
+console.log(`[PASS] findActions('mirror', format: 'json') returned ${mirrorResults.total_matches} matches`);
 assert(mirrorResults.total_matches >= 2, "Expected at least 2 mirror actions");
 const mirrorActions = mirrorResults.actions.map((a) => a.action);
 assert(mirrorActions.includes("list_push_mirrors"), "Missing list_push_mirrors");
@@ -44,8 +44,8 @@ assert(mirrorActions.includes("trigger_push_mirror_sync"), "Missing trigger_push
 console.log("       Mirror actions found:", mirrorActions.join(", "));
 
 // 5. Find actions - domain filtering
-const mrDomainResults = findActions({ domain: "mr" });
-console.log(`[PASS] findActions(domain: 'mr') returned ${mrDomainResults.total_matches} actions`);
+const mrDomainResults = findActions({ domain: "mr", format: "json" });
+console.log(`[PASS] findActions(domain: 'mr', format: 'json') returned ${mrDomainResults.total_matches} actions`);
 assert(mrDomainResults.total_matches > 5, "Expected merge request actions");
 
 // 6. Parameter summary formatting
@@ -68,8 +68,8 @@ assert(caughtUnknown, "Should throw on unknown action");
 console.log("[PASS] Unknown action error gracefully guides LLM to gitlab_find_actions");
 
 // 8. Protected branches action discovery
-const pbResults = findActions({ query: "protect" });
-console.log(`[PASS] findActions('protect') returned ${pbResults.total_matches} matches`);
+const pbResults = findActions({ query: "protect", format: "json" });
+console.log(`[PASS] findActions('protect', format: 'json') returned ${pbResults.total_matches} matches`);
 const pbActions = pbResults.actions.map((a) => a.action);
 assert(pbActions.includes("list_protected_branches"), "Missing list_protected_branches");
 assert(pbActions.includes("protect_branch"), "Missing protect_branch");
@@ -77,22 +77,22 @@ assert(pbActions.includes("unprotect_branch"), "Missing unprotect_branch");
 console.log("       Protected branch actions found:", pbActions.join(", "));
 
 // 9. Enterprise system health check discovery
-const healthResults = findActions({ query: "system_health_check" });
-console.log(`[PASS] findActions('system_health_check') returned ${healthResults.total_matches} matches`);
+const healthResults = findActions({ query: "system_health_check", format: "json" });
+console.log(`[PASS] findActions('system_health_check', format: 'json') returned ${healthResults.total_matches} matches`);
 assert(healthResults.total_matches >= 1, "Missing system_health_check");
 
 // 9b. Group management action discovery
-const groupResults = findActions({ query: "create_group" });
-console.log(`[PASS] findActions('create_group') returned ${groupResults.total_matches} matches`);
+const groupResults = findActions({ query: "create_group", format: "json" });
+console.log(`[PASS] findActions('create_group', format: 'json') returned ${groupResults.total_matches} matches`);
 assert(groupResults.actions.map((a) => a.action).includes("create_group"), "Missing create_group");
 assert.strictEqual(groupResults.actions[0].mutating, true, "create_group must be marked mutating");
 
-// 10. Smart format: markdown output support
-const mdResults = findActions({ query: "runner", format: "markdown" });
-assert(typeof mdResults === "string", "Expected markdown output string");
+// 10. Smart format: default markdown output support
+const mdResults = findActions({ query: "runner" }); // default is markdown
+assert(typeof mdResults === "string", "Expected default markdown output string");
 assert(mdResults.includes("| Action | Domain | Mutating | Description |"), "Expected markdown table header");
 assert(mdResults.includes("`list_runners`"), "Expected list_runners in markdown table");
-console.log("[PASS] findActions format: 'markdown' rendered valid Markdown table");
+console.log("[PASS] findActions default format: 'markdown' rendered valid Markdown table");
 
 // 11. Registry metadata & server.json validation
 const serverJson = JSON.parse(fs.readFileSync(new URL("../server.json", import.meta.url), "utf8"));

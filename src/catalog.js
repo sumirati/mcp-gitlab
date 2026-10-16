@@ -125,7 +125,7 @@ function formatActionsAsMarkdown(result) {
 /**
  * Search and discover GitLab actions on-demand
  */
-export function findActions({ query, domain, page = 1, per_page = 15, format = "json" }) {
+export function findActions({ query, domain, page = 1, per_page = 15, format = "markdown" }) {
   let entries = Array.from(CATALOG.values());
 
   // Filter by read-only mode if active

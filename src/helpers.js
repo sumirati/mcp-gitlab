@@ -93,17 +93,44 @@ export function summarizeMR(mr) {
   };
 }
 
-export function summarizeCommit(c) {
+export function summarizeCommit(c, options = {}) {
+  const fullMessage = options.full_message === true;
+  const headline = c.title || (c.message ? c.message.split("\n")[0] : "");
   return {
     id: c.id,
     short_id: c.short_id || (c.id ? c.id.slice(0, 8) : null),
-    title: c.title,
-    message: c.message,
+    title: c.title || headline,
+    message: fullMessage ? c.message : headline,
     author_name: c.author_name,
     authored_date: c.authored_date,
     committer_name: c.committer_name,
     committed_date: c.committed_date,
     web_url: c.web_url,
+  };
+}
+
+export function summarizeRelease(r) {
+  if (!r) return null;
+  return {
+    name: r.name,
+    tag_name: r.tag_name,
+    description: r.description,
+    created_at: r.created_at,
+    released_at: r.released_at,
+    author: r.author ? r.author.username : null,
+    commit_sha: r.commit ? (r.commit.short_id || (r.commit.id ? r.commit.id.slice(0, 8) : null)) : null,
+    upcoming_release: Boolean(r.upcoming_release),
+  };
+}
+
+export function summarizeTag(t) {
+  if (!t) return null;
+  return {
+    name: t.name,
+    message: t.message,
+    target: t.target,
+    commit_sha: t.commit ? (t.commit.short_id || (t.commit.id ? t.commit.id.slice(0, 8) : null)) : null,
+    protected: Boolean(t.protected),
   };
 }
 
@@ -148,6 +175,16 @@ export function summarizeSnippet(s) {
     created_at: s.created_at,
     web_url: s.web_url,
     raw_url: s.raw_url,
+  };
+}
+
+export function summarizeWiki(w) {
+  if (!w) return null;
+  return {
+    slug: w.slug,
+    title: w.title,
+    format: w.format,
+    ...(w.content ? { content: w.content.length > 300 ? w.content.slice(0, 300) + "..." : w.content } : {}),
   };
 }
 

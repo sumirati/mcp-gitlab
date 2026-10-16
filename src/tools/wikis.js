@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
 import { gitlabRequest, formatProjectId } from "../client.js";
 import { ProjectParamsSchema } from "../schemas.js";
+import { summarizeWiki } from "../helpers.js";
 
 // Helper: Parse markdown headings to generate a structured Table of Contents
 function extractWikiHeadings(markdown) {
@@ -209,10 +210,11 @@ export const wikiHandlers = {
       content: parsed.content,
       format: parsed.format,
     };
-    return await gitlabRequest(`/projects/${pId}/wikis`, {
+    const res = await gitlabRequest(`/projects/${pId}/wikis`, {
       method: "POST",
       body: JSON.stringify(body),
     });
+    return summarizeWiki(res);
   },
 
   update_wiki: async (args) => {
@@ -223,9 +225,10 @@ export const wikiHandlers = {
       ...(parsed.title ? { title: parsed.title } : {}),
       ...(parsed.format ? { format: parsed.format } : {}),
     };
-    return await gitlabRequest(`/projects/${pId}/wikis/${encodeURIComponent(parsed.slug)}`, {
+    const res = await gitlabRequest(`/projects/${pId}/wikis/${encodeURIComponent(parsed.slug)}`, {
       method: "PUT",
       body: JSON.stringify(body),
     });
+    return summarizeWiki(res);
   },
 };

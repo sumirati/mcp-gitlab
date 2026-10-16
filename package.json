@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "start": "node index.js",
-    "test": "GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/v3-test.js && GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/mcp-protocol-test.js"
+    "test": "GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/v3-test.js && GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/client-resilience-test.js && GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/mcp-protocol-test.js"
   },
   "repository": {
     "type": "git",

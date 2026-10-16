@@ -161,9 +161,15 @@ export const milestoneHandlers = {
   create_label: async (args) => {
     const parsed = CreateLabelSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
-    return await gitlabRequest(`/projects/${pId}/labels`, {
+    const res = await gitlabRequest(`/projects/${pId}/labels`, {
       method: "POST",
       body: JSON.stringify(parsed),
     });
+    return {
+      id: res.id,
+      name: res.name,
+      color: res.color,
+      description: res.description,
+    };
   },
 };

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
 import { gitlabRequest, formatProjectId } from "../client.js";
 import { ProjectParamsSchema } from "../schemas.js";
-import { summarizeProject, resolveNamespaceId } from "../helpers.js";
+import { summarizeProject, resolveNamespaceId, summarizeCommit } from "../helpers.js";
 
 // Schemas
 export const SearchRepositoriesSchema = z.object({
@@ -158,7 +158,9 @@ export const repositoryHandlers = {
       endpoint = `/groups/${gId}/projects`;
     }
 
-    return await gitlabRequest(`${endpoint}?${q.toString()}`);
+    const res = await gitlabRequest(`${endpoint}?${q.toString()}`);
+    const items = (res.items || res).map(summarizeProject);
+    return res.pagination ? { pagination: res.pagination, projects: items } : items;
   },
 
   get_project: async (args) => {
@@ -184,10 +186,11 @@ export const repositoryHandlers = {
       body.namespace_id = await resolveNamespaceId(parsed.namespace);
     }
 
-    return await gitlabRequest("/projects", {
+    const res = await gitlabRequest("/projects", {
       method: "POST",
       body: JSON.stringify(body),
     });
+    return summarizeProject(res);
   },
 
   update_project: async (args) => {
@@ -263,10 +266,14 @@ export const repositoryHandlers = {
       ...(parsed.previous_path ? { previous_path: parsed.previous_path } : {}),
     };
 
-    return await gitlabRequest(endpoint, {
+    const res = await gitlabRequest(endpoint, {
       method,
       body: JSON.stringify(body),
     });
+    return {
+      file_path: res.file_path,
+      branch: res.branch,
+    };
   },
 
   push_files: async (args) => {
@@ -290,7 +297,7 @@ export const repositoryHandlers = {
       })
     );
 
-    return await gitlabRequest(`/projects/${pId}/repository/commits`, {
+    const res = await gitlabRequest(`/projects/${pId}/repository/commits`, {
       method: "POST",
       body: JSON.stringify({
         branch: parsed.branch,
@@ -298,6 +305,7 @@ export const repositoryHandlers = {
         actions,
       }),
     });
+    return summarizeCommit(res);
   },
 
   fork_repository: async (args) => {
@@ -310,9 +318,10 @@ export const repositoryHandlers = {
     if (parsed.name) body.name = parsed.name;
     if (parsed.path) body.path = parsed.path;
 
-    return await gitlabRequest(`/projects/${pId}/fork`, {
+    const res = await gitlabRequest(`/projects/${pId}/fork`, {
       method: "POST",
       body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
     });
+    return summarizeProject(res);
   },
 };

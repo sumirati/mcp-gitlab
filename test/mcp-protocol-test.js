@@ -44,7 +44,7 @@ proc.stdout.on("data", (data) => {
       assert(names.includes("get_project"), "Missing get_project");
       assert(names.includes("get_commit"), "Missing get_commit");
 
-      // Now test calling gitlab_find_actions
+      // Now test calling gitlab_find_actions (default format: markdown)
       send({
         jsonrpc: "2.0",
         id: 3,
@@ -55,7 +55,25 @@ proc.stdout.on("data", (data) => {
         },
       });
     } else if (msg.id === 3) {
-      console.log("[PASS] Received tools/call response for gitlab_find_actions");
+      console.log("[PASS] Received tools/call response for gitlab_find_actions (default format: markdown)");
+      const text = msg.result.content[0].text;
+      assert(typeof text === "string", "Expected string markdown output");
+      assert(text.includes("| Action | Domain | Mutating | Description |"), "Expected markdown table header");
+      assert(text.includes("`list_push_mirrors`"), "Expected list_push_mirrors in markdown table");
+      console.log("       Verified default markdown response format");
+
+      // Now test explicit format: 'json'
+      send({
+        jsonrpc: "2.0",
+        id: 4,
+        method: "tools/call",
+        params: {
+          name: "gitlab_find_actions",
+          arguments: { query: "mirror", format: "json" },
+        },
+      });
+    } else if (msg.id === 4) {
+      console.log("[PASS] Received tools/call response for gitlab_find_actions (format: json)");
       const content = JSON.parse(msg.result.content[0].text);
       console.log(`       Found ${content.total_matches} mirror actions`);
       assert(content.total_matches >= 2, "Expected mirror actions");

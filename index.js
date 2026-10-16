@@ -49,8 +49,8 @@ const FindActionsSchema = z.object({
   format: z
     .enum(["json", "markdown"])
     .optional()
-    .default("json")
-    .describe("Output format: 'json' (default, structured object) or 'markdown' (compact human/LLM-readable text table)"),
+    .default("markdown")
+    .describe("Output format: 'markdown' (default, compact human/LLM-readable text table) or 'json' (structured object with parameter schemas)"),
 });
 
 const ExecuteActionSchema = z.object({
