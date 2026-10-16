@@ -139,7 +139,7 @@ export const mergeRequestTools = [
   {
     name: "get_merge_request_changes",
     title: "Get Merge Request Code Diffs",
-    description: "Inspect unified code diffs and modified files for an MR with automatic pagination assembly across all changed files. Features token-saving summaries (summary_only), file path filtering, lockfile pruning, and automatic diff refs (base_sha, start_sha, head_sha) needed for inline comments. Use for AI code review analysis.",
+    description: "Inspect unified code diffs and modified files for an MR. Features token-saving summaries (summary_only), file path filtering, lockfile pruning, and automatic diff refs (base_sha, start_sha, head_sha) needed for inline comments. Use for AI code review analysis.",
     inputSchema: zodToJsonSchema(GetMergeRequestChangesSchema),
   },
   {
@@ -313,6 +313,7 @@ export const mergeRequestHandlers = {
         title: res.title,
         source_branch: res.source_branch,
         target_branch: res.target_branch,
+        diff_refs: res.diff_refs || null,
         changes_count: res.changes_count,
         files_changed: changes.map((c) => ({
           old_path: c.old_path,
@@ -350,6 +351,7 @@ export const mergeRequestHandlers = {
       title: res.title,
       source_branch: res.source_branch,
       target_branch: res.target_branch,
+      diff_refs: res.diff_refs || null,
       changes_count: res.changes_count,
       changes: formattedChanges,
     };

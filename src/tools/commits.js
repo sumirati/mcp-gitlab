@@ -84,7 +84,7 @@ export const commitHandlers = {
 
     if (parsed.with_diff) {
       const resDiffs = await gitlabRequest(`/projects/${pId}/repository/commits/${parsed.sha}/diff`);
-      const diffList = resDiffs.items || resDiffs || [];
+      const diffList = Array.isArray(resDiffs?.items) ? resDiffs.items : (Array.isArray(resDiffs) ? resDiffs : []);
       const allFiles = diffList.map((d) => ({
         path: d.new_path,
         old_path: d.old_path !== d.new_path ? d.old_path : undefined,

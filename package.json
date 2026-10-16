@@ -16,7 +16,8 @@
   ],
   "scripts": {
     "start": "node index.js",
-    "test": "GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/v3-test.js && GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/client-resilience-test.js && GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/mcp-protocol-test.js"
+    "gen-docs": "node scripts/gen-docs.js",
+    "test": "GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/v3-test.js && GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/client-resilience-test.js && GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/mcp-protocol-test.js && GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/benchmark-test.js && GITLAB_PERSONAL_ACCESS_TOKEN=dummy node test/catalog-execution-test.js"
   },
   "repository": {
     "type": "git",

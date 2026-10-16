@@ -91,29 +91,64 @@ try {
   );
   console.log("[PASS] 201 ghost write (null id) detected and blocked");
 
+  // Test 5b: 201 Empty body handled gracefully without JSON parse crash
+  global.fetch = async () => ({
+    ok: true,
+    status: 201,
+    statusText: "Created",
+    headers: new Headers(),
+    text: async () => "",
+  });
+  const emptyCreated = await gitlabRequest("/projects/1/remote_mirrors/2/sync", { method: "POST" });
+  assert.strictEqual(emptyCreated.success, true);
+  console.log("[PASS] Empty 201 response body handled gracefully");
+
 } finally {
   global.fetch = originalFetch;
 }
 
-// Test 6: projectOutput hardening (html_url, web_url, empty collections, depth guard)
+// Test 6: projectOutput hardening (GitLab v4 web_url, webhook url preservation, v4 bloat stripping, empty collections, depth guard)
 import { projectOutput, stripAnsi, extractSmartJobLog, extractSymbolOutline } from "../src/helpers.js";
 
-// Verify html_url and web_url preservation
 const samplePayload = {
   id: 101,
-  html_url: "https://gitlab.example.com/releases/v1",
-  web_url: "https://gitlab.example.com/project/issues/1",
-  node_id: "MDQ6VXNlcjE=",
-  avatar_url: "https://gitlab.example.com/avatar.png",
-  url: "https://gitlab.example.com/api/v4/projects/1",
+  iid: 14,
+  web_url: "https://gitlab.example.com/group/project/-/issues/14",
+  url: "https://hooks.example.com/gitlab-webhook",
+  avatar_url: "https://gitlab.example.com/uploads/-/system/user/avatar/1/avatar.png",
+  _links: {
+    self: "https://gitlab.example.com/api/v4/projects/1/issues/14",
+    notes: "https://gitlab.example.com/api/v4/projects/1/issues/14/notes",
+  },
+  references: {
+    short: "#14",
+    relative: "#14",
+    full: "group/project#14",
+  },
+  time_stats: {
+    time_estimate: 0,
+    total_time_spent: 0,
+  },
+  task_completion_status: { count: 0, completed_count: 0 },
+  user_notes_count: 3,
+  upvotes: 1,
+  downvotes: 0,
+  subscribed: true,
+  container_expiration_policy: { enabled: false },
+  permissions: { project_access: null },
 };
 const cleaned = projectOutput(samplePayload);
-assert.strictEqual(cleaned.html_url, "https://gitlab.example.com/releases/v1", "html_url must be preserved");
-assert.strictEqual(cleaned.web_url, "https://gitlab.example.com/project/issues/1", "web_url must be preserved");
+assert.strictEqual(cleaned.web_url, "https://gitlab.example.com/group/project/-/issues/14", "web_url must be preserved");
+assert.strictEqual(cleaned.url, "https://hooks.example.com/gitlab-webhook", "webhook/mirror url must be preserved");
 assert.strictEqual(cleaned.avatar_url, undefined, "avatar_url must be stripped");
-assert.strictEqual(cleaned.node_id, undefined, "node_id must be stripped");
-assert.strictEqual(cleaned.url, undefined, "internal API url must be stripped");
-console.log("[PASS] projectOutput preserves html_url and web_url while stripping noise keys");
+assert.strictEqual(cleaned._links, undefined, "_links must be stripped");
+assert.strictEqual(cleaned.references, undefined, "references must be stripped");
+assert.strictEqual(cleaned.time_stats, undefined, "time_stats must be stripped");
+assert.strictEqual(cleaned.task_completion_status, undefined, "task_completion_status must be stripped");
+assert.strictEqual(cleaned.user_notes_count, undefined, "user_notes_count must be stripped");
+assert.strictEqual(cleaned.container_expiration_policy, undefined, "container_expiration_policy must be stripped");
+assert.strictEqual(cleaned.permissions, undefined, "permissions must be stripped");
+console.log("[PASS] projectOutput preserves web_url and url while stripping GitLab v4 noise keys");
 
 // Verify empty root collections are preserved
 assert.deepStrictEqual(projectOutput({}), {}, "Empty root object must be preserved as {}");
@@ -144,7 +179,20 @@ const smartExtracted = extractSmartJobLog(mockJobTrace, { tail_lines: 50, smart_
 assert(smartExtracted.includes("=== DETECTED FAILURE BLOCK"), "Must contain detected failure block");
 assert(smartExtracted.includes("FAIL: test_authentication_failed"), "Must contain the failure anchor");
 assert(smartExtracted.includes("=== JOB TEARDOWN TAIL ==="), "Must contain teardown tail");
-console.log("[PASS] stripAnsi and extractSmartJobLog failure anchor extraction verified");
+
+// Test tail_lines: 0 ("0 for all") on logs with failures and ANSI escapes
+const allLinesExtracted = extractSmartJobLog(mockJobTrace, { tail_lines: 0, smart_failure: true });
+assert(!allLinesExtracted.includes("[... Truncated"), "tail_lines: 0 must not contain truncation headers");
+assert(!allLinesExtracted.includes("=== DETECTED FAILURE BLOCK"), "tail_lines: 0 must not truncate into failure block");
+assert.strictEqual(allLinesExtracted.split("\n").length, mockJobTrace.split("\n").length, "tail_lines: 0 must return all lines");
+
+const ansiMockJobTrace = "\x1b[32m[INFO]\x1b[0m Starting build\n" + mockJobTrace;
+const allLinesCleanAnsi = extractSmartJobLog(ansiMockJobTrace, { tail_lines: 0, strip_ansi: true, smart_failure: true });
+assert(!allLinesCleanAnsi.includes("\x1b["), "tail_lines: 0 with strip_ansi: true must strip ANSI codes");
+assert(allLinesCleanAnsi.startsWith("[INFO] Starting build"), "Must start with stripped first line");
+assert(!allLinesCleanAnsi.includes("[... Truncated"), "tail_lines: 0 must have zero truncation markers");
+
+console.log("[PASS] stripAnsi and extractSmartJobLog failure anchor & tail_lines: 0 verified");
 
 // Test 8: extractSymbolOutline
 const mockCode = `

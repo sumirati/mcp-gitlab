@@ -150,9 +150,13 @@ export const userHandlers = {
   get_group: async (args) => {
     const parsed = GetGroupSchema.parse(args);
     const gId = typeof parsed.group_id === "number" ? parsed.group_id : encodeURIComponent(parsed.group_id);
-    const q = parsed.with_projects ? "?with_projects=true" : "";
+    const q = `?with_projects=${Boolean(parsed.with_projects)}`;
     const res = await gitlabRequest(`/groups/${gId}${q}`);
-    return summarizeGroup(res);
+    const summary = summarizeGroup(res);
+    if (parsed.with_projects && Array.isArray(res.projects)) {
+      summary.projects = res.projects.map(summarizeProject);
+    }
+    return summary;
   },
 
   list_group_projects: async (args) => {

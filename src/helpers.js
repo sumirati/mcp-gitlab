@@ -14,7 +14,7 @@ export async function resolveMilestoneId(projectId, milestoneIdentifier) {
   return match.id;
 }
 
-export function summarizeIssue(issue) {
+export function summarizeIssue(issue, full = false) {
   return {
     iid: issue.iid,
     id: issue.id,
@@ -25,11 +25,13 @@ export function summarizeIssue(issue) {
     assignees: (issue.assignees || []).map((a) => a.username),
     author: issue.author ? issue.author.username : null,
     due_date: issue.due_date || null,
+    confidential: Boolean(issue.confidential),
     web_url: issue.web_url,
     created_at: issue.created_at,
     updated_at: issue.updated_at,
+    ...(issue.closed_at ? { closed_at: issue.closed_at } : {}),
     description: issue.description
-      ? issue.description.length > 250
+      ? !full && issue.description.length > 250
         ? issue.description.slice(0, 250) + "..."
         : issue.description
       : null,
@@ -50,8 +52,8 @@ export function summarizeMilestone(m) {
   };
 }
 
-export function summarizePipeline(p) {
-  return {
+export function summarizePipeline(p, full = false) {
+  const base = {
     id: p.id,
     iid: p.iid,
     status: p.status,
@@ -61,6 +63,28 @@ export function summarizePipeline(p) {
     created_at: p.created_at,
     web_url: p.web_url,
   };
+  if (full) {
+    return {
+      ...base,
+      updated_at: p.updated_at || null,
+      started_at: p.started_at || null,
+      finished_at: p.finished_at || null,
+      duration: p.duration ?? null,
+      queued_duration: p.queued_duration ?? null,
+      coverage: p.coverage ?? null,
+      user: p.user ? p.user.username : null,
+      ...(p.detailed_status
+        ? {
+            detailed_status: {
+              text: p.detailed_status.text,
+              label: p.detailed_status.label,
+              group: p.detailed_status.group,
+            },
+          }
+        : {}),
+    };
+  }
+  return base;
 }
 
 export function summarizeJob(j) {
@@ -96,9 +120,10 @@ export function summarizeMR(mr) {
 export function summarizeCommit(c, options = {}) {
   const fullMessage = options.full_message === true;
   const headline = c.title || (c.message ? c.message.split("\n")[0] : "");
+  const idStr = c.id !== undefined && c.id !== null ? String(c.id) : null;
   return {
     id: c.id,
-    short_id: c.short_id || (c.id ? c.id.slice(0, 8) : null),
+    short_id: c.short_id || (idStr ? idStr.slice(0, 8) : null),
     title: c.title || headline,
     message: fullMessage ? c.message : headline,
     author_name: c.author_name,
@@ -142,12 +167,14 @@ export function summarizeProject(p) {
     visibility: p.visibility,
     description: p.description,
     default_branch: p.default_branch,
+    ...(Array.isArray(p.topics) && p.topics.length > 0 ? { topics: p.topics } : {}),
     ssh_url_to_repo: p.ssh_url_to_repo,
     http_url_to_repo: p.http_url_to_repo,
     web_url: p.web_url,
     star_count: p.star_count,
     forks_count: p.forks_count,
     last_activity_at: p.last_activity_at,
+    ...(p.statistics ? { statistics: p.statistics } : {}),
   };
 }
 
@@ -373,27 +400,30 @@ export function isLockfile(filePath) {
   return false;
 }
 
-const NOISE_KEYS = new Set([
+export const NOISE_KEYS = new Set([
   "_links",
   "avatar_url",
-  "gravatar_id",
-  "node_id",
-  "site_admin",
-  "starred_url",
-  "subscriptions_url",
-  "organizations_url",
-  "repos_url",
-  "events_url",
-  "received_events_url",
-  "gists_url",
-  "following_url",
-  "followers_url",
+  "references",
+  "time_stats",
+  "task_completion_status",
+  "commands_changes",
+  "user_notes_count",
+  "merge_requests_count",
+  "upvotes",
+  "downvotes",
+  "subscribed",
+  "has_tasks",
+  "service_desk_reply_to",
+  "moved_to_id",
+  "container_expiration_policy",
+  "permissions",
 ]);
 
 /**
- * Universal token compression filter that strips redundant metadata:
- * avatar URLs, Gravatar IDs, internal API links, and null/empty fields.
- * Preserves high-signal functional data (IDs, names, diffs, bodies, states, timestamps, html_url, web_url).
+ * Universal token compression filter for GitLab REST API v4 responses.
+ * Strips low-signal metadata (_links, avatar_url, references, time_stats, task_completion_status,
+ * reaction/note counters, container_expiration_policy, permissions) and null/empty fields.
+ * Preserves high-signal functional data (IDs, IIDs, names, diffs, bodies, states, timestamps, web_url, url).
  * Hardened with maxDepth recursion guard (32) and preserves empty root collections.
  */
 export function projectOutput(val, depth = 0, maxDepth = 32) {
@@ -408,7 +438,6 @@ export function projectOutput(val, depth = 0, maxDepth = 32) {
   const result = {};
   for (const [k, v] of Object.entries(val)) {
     if (NOISE_KEYS.has(k)) continue;
-    if (k === "url" && typeof v === "string" && (v.includes("/api/v4") || v.includes("api.github.com"))) continue;
     const cleaned = projectOutput(v, depth + 1, maxDepth);
     if (cleaned !== undefined && cleaned !== null && cleaned !== "") {
       result[k] = cleaned;
@@ -440,9 +469,14 @@ export function renderMarkdownTable(items, columns) {
   return [headerLine, dividerLine, ...rows].join("\n");
 }
 
+function formatPaginationPrefix(title, pagination) {
+  if (!pagination) return "";
+  return `### ${title} (Page ${pagination.page || 1}/${pagination.total_pages || 1}, Total: ${pagination.total ?? "-"})\n\n`;
+}
+
 export function formatIssuesMarkdown(data) {
   const items = Array.isArray(data) ? data : data?.issues || [];
-  const prefix = data?.pagination ? `### Issues (Page ${data.pagination.page}/${data.pagination.total_pages || 1}, Total: ${data.pagination.total})\n\n` : "";
+  const prefix = formatPaginationPrefix("Issues", data?.pagination);
   return prefix + renderMarkdownTable(items, [
     { header: "IID", get: (i) => `#${i.iid || i.id}` },
     { header: "Title", get: (i) => i.title },
@@ -456,7 +490,7 @@ export function formatIssuesMarkdown(data) {
 
 export function formatMergeRequestsMarkdown(data) {
   const items = Array.isArray(data) ? data : data?.merge_requests || [];
-  const prefix = data?.pagination ? `### Merge Requests (Page ${data.pagination.page}/${data.pagination.total_pages || 1}, Total: ${data.pagination.total})\n\n` : "";
+  const prefix = formatPaginationPrefix("Merge Requests", data?.pagination);
   return prefix + renderMarkdownTable(items, [
     { header: "!MR", get: (m) => `!${m.iid || m.id}` },
     { header: "Title", get: (m) => (m.draft ? `[Draft] ${m.title}` : m.title) },
@@ -469,7 +503,7 @@ export function formatMergeRequestsMarkdown(data) {
 
 export function formatPipelinesMarkdown(data) {
   const items = Array.isArray(data) ? data : data?.pipelines || [];
-  const prefix = data?.pagination ? `### Pipelines (Page ${data.pagination.page}/${data.pagination.total_pages || 1}, Total: ${data.pagination.total})\n\n` : "";
+  const prefix = formatPaginationPrefix("Pipelines", data?.pagination);
   return prefix + renderMarkdownTable(items, [
     { header: "ID", get: (p) => p.id },
     { header: "Status", get: (p) => p.status },
@@ -482,7 +516,8 @@ export function formatPipelinesMarkdown(data) {
 
 export function formatPipelineJobsMarkdown(data) {
   const items = Array.isArray(data) ? data : data?.jobs || [];
-  return renderMarkdownTable(items, [
+  const prefix = formatPaginationPrefix("Pipeline Jobs", data?.pagination);
+  return prefix + renderMarkdownTable(items, [
     { header: "ID", get: (j) => j.id },
     { header: "Name", get: (j) => j.name },
     { header: "Stage", get: (j) => j.stage },
@@ -493,7 +528,7 @@ export function formatPipelineJobsMarkdown(data) {
 
 export function formatCommitsMarkdown(data) {
   const items = Array.isArray(data) ? data : data?.commits || [];
-  const prefix = data?.pagination ? `### Commits (Page ${data.pagination.page}/${data.pagination.total_pages || 1}, Total: ${data.pagination.total})\n\n` : "";
+  const prefix = formatPaginationPrefix("Commits", data?.pagination);
   return prefix + renderMarkdownTable(items, [
     { header: "SHA", get: (c) => c.short_id || (c.id ? c.id.slice(0, 8) : "-") },
     { header: "Author", get: (c) => c.author_name || "-" },
@@ -504,7 +539,8 @@ export function formatCommitsMarkdown(data) {
 
 export function formatBranchesMarkdown(data) {
   const items = Array.isArray(data) ? data : data?.branches || [];
-  return renderMarkdownTable(items, [
+  const prefix = formatPaginationPrefix("Branches", data?.pagination);
+  return prefix + renderMarkdownTable(items, [
     { header: "Branch", get: (b) => b.name },
     { header: "Protected", get: (b) => (b.protected ? "Yes" : "No") },
     { header: "Default", get: (b) => (b.default ? "Yes" : "No") },
@@ -512,9 +548,22 @@ export function formatBranchesMarkdown(data) {
   ]);
 }
 
+export function formatProtectedBranchesMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.protected_branches || [];
+  const prefix = formatPaginationPrefix("Protected Branches", data?.pagination);
+  return prefix + renderMarkdownTable(items, [
+    { header: "Branch / Pattern", get: (pb) => pb.name },
+    { header: "Push Access", get: (pb) => (Array.isArray(pb.push_access_levels) && pb.push_access_levels.length ? pb.push_access_levels.map((p) => p.description || p.access_level_description || p.access_level).join(", ") : "-") },
+    { header: "Merge Access", get: (pb) => (Array.isArray(pb.merge_access_levels) && pb.merge_access_levels.length ? pb.merge_access_levels.map((m) => m.description || m.access_level_description || m.access_level).join(", ") : "-") },
+    { header: "Force Push", get: (pb) => (pb.allow_force_push ? "Yes" : "No") },
+    { header: "Code Owner Approval", get: (pb) => (pb.code_owner_approval_required ? "Yes" : "No") },
+  ]);
+}
+
 export function formatMembersMarkdown(data) {
   const items = Array.isArray(data) ? data : data?.members || [];
-  return renderMarkdownTable(items, [
+  const prefix = formatPaginationPrefix("Project Members", data?.pagination);
+  return prefix + renderMarkdownTable(items, [
     { header: "Username", get: (m) => `@${m.username}` },
     { header: "Name", get: (m) => m.name },
     { header: "Role", get: (m) => m.role || "-" },
@@ -524,7 +573,8 @@ export function formatMembersMarkdown(data) {
 
 export function formatVariablesMarkdown(data) {
   const items = Array.isArray(data) ? data : data?.variables || [];
-  return renderMarkdownTable(items, [
+  const prefix = formatPaginationPrefix("Variables", data?.pagination);
+  return prefix + renderMarkdownTable(items, [
     { header: "Key", get: (v) => v.key },
     { header: "Type", get: (v) => v.variable_type || "env_var" },
     { header: "Scope", get: (v) => v.environment_scope || "*" },
@@ -535,7 +585,8 @@ export function formatVariablesMarkdown(data) {
 
 export function formatMilestonesMarkdown(data) {
   const items = Array.isArray(data) ? data : data?.milestones || [];
-  return renderMarkdownTable(items, [
+  const prefix = formatPaginationPrefix("Milestones", data?.pagination);
+  return prefix + renderMarkdownTable(items, [
     { header: "IID", get: (m) => `#${m.iid || m.id}` },
     { header: "Title", get: (m) => m.title },
     { header: "State", get: (m) => m.state },
@@ -546,7 +597,8 @@ export function formatMilestonesMarkdown(data) {
 
 export function formatReleasesMarkdown(data) {
   const items = Array.isArray(data) ? data : data?.releases || [];
-  return renderMarkdownTable(items, [
+  const prefix = formatPaginationPrefix("Releases", data?.pagination);
+  return prefix + renderMarkdownTable(items, [
     { header: "Tag", get: (r) => r.tag_name || r.name },
     { header: "Name", get: (r) => r.name || "-" },
     { header: "Author", get: (r) => (r.author ? `@${r.author}` : "-") },
@@ -555,12 +607,66 @@ export function formatReleasesMarkdown(data) {
   ]);
 }
 
+export function formatProjectsListMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.projects || [];
+  const prefix = formatPaginationPrefix("Projects", data?.pagination);
+  return prefix + renderMarkdownTable(items, [
+    { header: "ID", get: (p) => p.id },
+    { header: "Project", get: (p) => p.path_with_namespace || p.name },
+    { header: "Visibility", get: (p) => p.visibility || "-" },
+    { header: "Default Branch", get: (p) => `\`${p.default_branch || "main"}\`` },
+    { header: "Stars", get: (p) => p.star_count ?? 0 },
+    { header: "Description", get: (p) => (p.description ? (p.description.length > 80 ? p.description.slice(0, 80) + "..." : p.description) : "-") },
+  ]);
+}
+
+export function formatGroupsListMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.groups || [];
+  const prefix = formatPaginationPrefix("Groups", data?.pagination);
+  return prefix + renderMarkdownTable(items, [
+    { header: "ID", get: (g) => g.id },
+    { header: "Group", get: (g) => g.full_path || g.path || g.name },
+    { header: "Name", get: (g) => g.name || "-" },
+    { header: "Visibility", get: (g) => g.visibility || "-" },
+    { header: "Description", get: (g) => (g.description ? (g.description.length > 80 ? g.description.slice(0, 80) + "..." : g.description) : "-") },
+  ]);
+}
+
+export function formatFileContentsMarkdown(f) {
+  if (!f) return "_No file data._";
+  if (f.type === "directory" && Array.isArray(f.entries)) {
+    const header = `## Directory: \`${f.path || "/"}\` (ref: \`${f.ref || "HEAD"}\`)\n\n`;
+    return header + renderMarkdownTable(f.entries, [
+      { header: "Name", get: (item) => item.name },
+      { header: "Type", get: (item) => item.type },
+      { header: "Path", get: (item) => item.path },
+      { header: "Mode", get: (item) => item.mode || "-" },
+    ]);
+  }
+  let md = `## File: \`${f.file_path || f.file_name || "-"}\`\n\n`;
+  const meta = [];
+  if (f.size !== undefined) meta.push(`**Size**: ${f.size} bytes`);
+  if (f.ref) meta.push(`**Ref**: \`${f.ref}\``);
+  if (f.last_commit_id) meta.push(`**Commit**: \`${f.last_commit_id.slice(0, 8)}\``);
+  if (f.sliced_lines) meta.push(`**Lines**: ${f.sliced_lines}`);
+  if (meta.length > 0) md += meta.join(" | ") + "\n\n";
+  if (f.outline) {
+    md += `\`\`\`text\n${f.outline}\n\`\`\`\n`;
+  } else if (f.decoded_content !== undefined) {
+    md += `\`\`\`\n${f.decoded_content}\n\`\`\`\n`;
+  }
+  return md;
+}
+
 export function formatProjectMarkdown(p) {
   if (!p) return "_No project data._";
   let md = `## Project: ${p.path_with_namespace || p.name} (ID: ${p.id})\n\n`;
   if (p.description) md += `${p.description}\n\n`;
   md += `- **Visibility**: ${p.visibility || "internal"}\n`;
   md += `- **Default Branch**: \`${p.default_branch || "main"}\`\n`;
+  if (Array.isArray(p.topics) && p.topics.length > 0) {
+    md += `- **Topics**: ${p.topics.join(", ")}\n`;
+  }
   md += `- **Web URL**: ${p.web_url || "-"}\n`;
   if (p.ssh_url_to_repo) md += `- **SSH Clone**: \`${p.ssh_url_to_repo}\`\n`;
   if (p.http_url_to_repo) md += `- **HTTP Clone**: \`${p.http_url_to_repo}\`\n`;
@@ -597,21 +703,23 @@ export function formatCommitDetailsMarkdown(c) {
   return md;
 }
 
-const ACTION_FORMATTERS = {
+export const ACTION_FORMATTERS = {
   list_issues: formatIssuesMarkdown,
-  search_issues: formatIssuesMarkdown,
   list_merge_requests: formatMergeRequestsMarkdown,
   list_pipelines: formatPipelinesMarkdown,
   list_pipeline_jobs: formatPipelineJobsMarkdown,
   list_commits: formatCommitsMarkdown,
   list_branches: formatBranchesMarkdown,
-  list_protected_branches: formatBranchesMarkdown,
+  list_protected_branches: formatProtectedBranchesMarkdown,
   list_project_members: formatMembersMarkdown,
-  list_group_members: formatMembersMarkdown,
   list_project_variables: formatVariablesMarkdown,
-  list_group_variables: formatVariablesMarkdown,
   list_milestones: formatMilestonesMarkdown,
   list_releases: formatReleasesMarkdown,
+  search_repositories: formatProjectsListMarkdown,
+  list_group_projects: formatProjectsListMarkdown,
+  list_my_projects: formatProjectsListMarkdown,
+  list_my_groups: formatGroupsListMarkdown,
+  get_file_contents: formatFileContentsMarkdown,
   get_project: formatProjectMarkdown,
   get_commit: formatCommitDetailsMarkdown,
 };
@@ -641,8 +749,38 @@ export function jsonToMarkdown(data, actionName) {
   if (data.commits && Array.isArray(data.commits)) {
     return formatCommitsMarkdown(data);
   }
+  if (data.branches && Array.isArray(data.branches)) {
+    return formatBranchesMarkdown(data);
+  }
+  if (data.protected_branches && Array.isArray(data.protected_branches)) {
+    return formatProtectedBranchesMarkdown(data);
+  }
+  if (data.members && Array.isArray(data.members)) {
+    return formatMembersMarkdown(data);
+  }
+  if (data.variables && Array.isArray(data.variables)) {
+    return formatVariablesMarkdown(data);
+  }
+  if (data.milestones && Array.isArray(data.milestones)) {
+    return formatMilestonesMarkdown(data);
+  }
+  if (data.releases && Array.isArray(data.releases)) {
+    return formatReleasesMarkdown(data);
+  }
+  if (data.projects && Array.isArray(data.projects)) {
+    return formatProjectsListMarkdown(data);
+  }
+  if (data.groups && Array.isArray(data.groups)) {
+    return formatGroupsListMarkdown(data);
+  }
+  if (data.decoded_content !== undefined || data.outline !== undefined || (data.type === "directory" && Array.isArray(data.entries))) {
+    return formatFileContentsMarkdown(data);
+  }
   if (data.path_with_namespace && data.id && data.default_branch) {
     return formatProjectMarkdown(data);
+  }
+  if (data.short_id && data.authored_date && (Array.isArray(data.files_changed) || Array.isArray(data.diffs))) {
+    return formatCommitDetailsMarkdown(data);
   }
 
   // 3. Array of objects
@@ -663,16 +801,22 @@ export function jsonToMarkdown(data, actionName) {
       if (first.short_id && first.title) {
         return formatCommitsMarkdown(data);
       }
+      if (first.name && Array.isArray(first.push_access_levels)) {
+        return formatProtectedBranchesMarkdown(data);
+      }
       if (first.name && first.protected !== undefined) {
         return formatBranchesMarkdown(data);
       }
       if (first.username && first.role) {
         return formatMembersMarkdown(data);
       }
+      if (first.path_with_namespace && first.default_branch) {
+        return formatProjectsListMarkdown(data);
+      }
 
       // General table formatting with prioritized column selection
       const allKeys = Array.from(new Set(data.flatMap((item) => Object.keys(item))));
-      const priorityKeys = ["id", "iid", "number", "name", "title", "key", "state", "status", "type", "ref", "role", "author", "created_at", "value"];
+      const priorityKeys = ["id", "iid", "name", "title", "key", "state", "status", "type", "ref", "role", "author", "created_at", "value"];
       const sortedKeys = [
         ...priorityKeys.filter((k) => allKeys.includes(k)),
         ...allKeys.filter((k) => !priorityKeys.includes(k)),
@@ -740,6 +884,9 @@ export function stripAnsi(text) {
 export function extractSmartJobLog(rawLog, { tail_lines = 100, strip_ansi = true, smart_failure = true } = {}) {
   if (!rawLog) return "";
   let text = strip_ansi ? stripAnsi(rawLog) : rawLog;
+  if (tail_lines <= 0) {
+    return text;
+  }
   const lines = text.split(/\r?\n/);
   if (lines.length <= tail_lines) {
     return lines.join("\n");

@@ -28,8 +28,8 @@ You can pass either the numeric project ID or the URL/namespace path for `projec
 - Complete work items with `accept_merge_request` (with `squash` and `should_remove_source_branch` flags).
 
 ## Atomic Multi-File Commits
-- **Batch Commits without Local Git**: When creating or modifying multiple files simultaneously (e.g. refactoring code and updating documentation together), do **NOT** invoke `create_or_update_file` in a loop.
-- **Use `create_commit` (or `push_files`)**: Provide `project_id`, `branch`, `commit_message` (or `message`), and an array `files: [{ file_path: "src/file1.js", content: "..." }, { file_path: "docs/file2.md", content: "..." }]`. This constructs a single atomic Git commit via GitLab's Commits API directly on the remote branch without local git cloning.
+- **Batch Commits without Local Git**: When creating, updating, moving, or deleting multiple files simultaneously (e.g. refactoring code and updating documentation together), do **NOT** invoke `create_or_update_file` in a loop.
+- **Use `create_commit` (or `push_files`)**: Provide `project_id`, `branch`, `commit_message`, and an array `files: [{ file_path: "src/file1.js", content: "...", action: "create" | "update" }, { file_path: "src/old.js", action: "delete" }, { file_path: "src/moved.js", previous_path: "src/orig.js", action: "move" }]`. This constructs a single atomic Git commit via GitLab's Commits API directly on the remote branch without local git cloning.
 
 ## Daily Drivers & Token Economy
 - **Code Inspection (Outline First)**: Always prefer `get_file_contents` to inspect files without cloning.

@@ -58,10 +58,21 @@ export async function gitlabRequest(endpoint, options = {}, responseType = "json
     let errJson = null;
     let errorDetail = "";
     try {
-      errJson = await response.json();
-      errorDetail = typeof errJson === "object" ? JSON.stringify(errJson) : String(errJson);
+      if (typeof response.text === "function") {
+        const rawErrorText = await response.text();
+        errorDetail = rawErrorText;
+        errJson = rawErrorText ? JSON.parse(rawErrorText) : null;
+        if (errJson && typeof errJson === "object") {
+          errorDetail = JSON.stringify(errJson);
+        }
+      } else if (typeof response.json === "function") {
+        errJson = await response.json();
+        errorDetail = errJson && typeof errJson === "object" ? JSON.stringify(errJson) : String(errJson);
+      }
     } catch {
-      errorDetail = await response.text();
+      if (!errorDetail) {
+        errorDetail = response.statusText || "Unknown error";
+      }
     }
 
     // 1. Rate Limiting (Rack Attack / Reverse Proxy 429)
@@ -118,7 +129,20 @@ export async function gitlabRequest(endpoint, options = {}, responseType = "json
     return await response.text();
   }
 
-  const data = await response.json();
+  let data;
+  if (typeof response.text === "function") {
+    const rawText = await response.text();
+    if (!rawText || !rawText.trim()) {
+      return { success: true, status: response.status };
+    }
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      return { success: true, status: response.status, text: rawText };
+    }
+  } else if (typeof response.json === "function") {
+    data = await response.json();
+  }
 
   // 4. Guard against ghost writes where server returns 201 Created with id: null
   if (response.status === 201 && data && typeof data === "object" && !Array.isArray(data) && data.id === null) {

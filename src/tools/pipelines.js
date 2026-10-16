@@ -37,6 +37,14 @@ export const CreatePipelineSchema = ProjectParamsSchema.extend({
     .describe("Optional CI/CD variables to pass to the pipeline execution"),
 });
 
+export const CancelPipelineSchema = ProjectParamsSchema.extend({
+  pipeline_id: z.number().describe("Numeric ID of the pipeline to cancel"),
+});
+
+export const RetryPipelineSchema = ProjectParamsSchema.extend({
+  pipeline_id: z.number().describe("Numeric ID of the pipeline to retry failed/canceled jobs for"),
+});
+
 export const ListPipelineJobsSchema = ProjectParamsSchema.extend({
   pipeline_id: z.number().describe("Numeric ID of the pipeline"),
   scope: z
@@ -102,6 +110,20 @@ export const pipelineTools = [
     mutating: true,
   },
   {
+    name: "cancel_pipeline",
+    title: "Cancel CI/CD Pipeline",
+    description: "Cancel all running and pending jobs in an active CI/CD pipeline run by numeric pipeline_id. Side effect: terminates active runner jobs for this pipeline immediately.",
+    inputSchema: zodToJsonSchema(CancelPipelineSchema),
+    mutating: true,
+  },
+  {
+    name: "retry_pipeline",
+    title: "Retry CI/CD Pipeline",
+    description: "Retry all failed or canceled jobs in an existing CI/CD pipeline run by numeric pipeline_id. Side effect: re-queues failed/canceled jobs on GitLab runners immediately.",
+    inputSchema: zodToJsonSchema(RetryPipelineSchema),
+    mutating: true,
+  },
+  {
     name: "list_pipeline_jobs",
     title: "List Pipeline Jobs",
     description: "List all execution jobs (build, test, lint, deploy) and their current status within a specific pipeline. Use to identify which specific stage or job failed in a pipeline run. Do NOT use to download job output logs; use 'get_job_trace' instead once the failed job ID is known.",
@@ -149,14 +171,15 @@ export const pipelineHandlers = {
     if (parsed.order_by) q.append("order_by", parsed.order_by);
     if (parsed.sort) q.append("sort", parsed.sort);
     const res = await gitlabRequest(`/projects/${pId}/pipelines?${q.toString()}`);
-    const items = (res.items || res).map(summarizePipeline);
+    const items = (res.items || res).map((p) => summarizePipeline(p, false));
     return res.pagination ? { pagination: res.pagination, pipelines: items } : items;
   },
 
   get_pipeline: async (args) => {
     const parsed = GetPipelineSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
-    return await gitlabRequest(`/projects/${pId}/pipelines/${parsed.pipeline_id}`);
+    const res = await gitlabRequest(`/projects/${pId}/pipelines/${parsed.pipeline_id}`);
+    return summarizePipeline(res, true);
   },
 
   create_pipeline: async (args) => {
@@ -169,7 +192,25 @@ export const pipelineHandlers = {
         ...(parsed.variables ? { variables: parsed.variables } : {}),
       }),
     });
-    return summarizePipeline(res);
+    return summarizePipeline(res, false);
+  },
+
+  cancel_pipeline: async (args) => {
+    const parsed = CancelPipelineSchema.parse(args);
+    const pId = formatProjectId(parsed.project_id);
+    const res = await gitlabRequest(`/projects/${pId}/pipelines/${parsed.pipeline_id}/cancel`, {
+      method: "POST",
+    });
+    return summarizePipeline(res, true);
+  },
+
+  retry_pipeline: async (args) => {
+    const parsed = RetryPipelineSchema.parse(args);
+    const pId = formatProjectId(parsed.project_id);
+    const res = await gitlabRequest(`/projects/${pId}/pipelines/${parsed.pipeline_id}/retry`, {
+      method: "POST",
+    });
+    return summarizePipeline(res, true);
   },
 
   list_pipeline_jobs: async (args) => {
@@ -181,7 +222,8 @@ export const pipelineHandlers = {
     });
     if (parsed.scope) q.append("scope", parsed.scope);
     const res = await gitlabRequest(`/projects/${pId}/pipelines/${parsed.pipeline_id}/jobs?${q.toString()}`);
-    return (res.items || res).map(summarizeJob);
+    const items = (res.items || res).map(summarizeJob);
+    return res.pagination ? { pagination: res.pagination, jobs: items } : items;
   },
 
   get_job: async (args) => {

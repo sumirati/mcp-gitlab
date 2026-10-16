@@ -51,7 +51,8 @@ export const DOMAIN_ALIASES = {
 };
 
 // Build flattened catalog map
-const CATALOG = new Map();
+export const ACTION_CATALOG = new Map();
+const CATALOG = ACTION_CATALOG;
 
 for (const [domain, module] of Object.entries(DOMAIN_MODULES)) {
   for (const tool of module.tools) {
@@ -102,6 +103,18 @@ function summarizeSchemaParameters(schema) {
   };
 }
 
+function formatCompactParameters(parameters) {
+  const props = parameters?.properties || {};
+  const keys = Object.keys(props);
+  if (keys.length === 0) return "-";
+  const reqSet = new Set(parameters?.required || []);
+  const sorted = [
+    ...keys.filter((k) => reqSet.has(k)),
+    ...keys.filter((k) => !reqSet.has(k)),
+  ];
+  return sorted.map((k) => (reqSet.has(k) ? `\`${k}*\`` : `\`${k}?\``)).join(", ");
+}
+
 function formatActionsAsMarkdown(result) {
   if (result.message) {
     let md = `## GitLab Action Catalog\n\n${result.message}\n\n### Available Domains\n\n`;
@@ -112,12 +125,13 @@ function formatActionsAsMarkdown(result) {
   }
 
   let md = `### GitLab Actions (${result.total_matches} total matches, page ${result.page}/${Math.ceil(result.total_matches / result.per_page) || 1})\n\n`;
-  md += `| Action | Domain | Mutating | Description |\n`;
-  md += `| :--- | :--- | :--- | :--- |\n`;
+  md += `| Action | Domain | Mutating | Parameters (\`*\` = required) | Description |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- |\n`;
   for (const a of result.actions) {
     const mut = a.mutating ? "Yes" : "No";
+    const paramsSig = formatCompactParameters(a.parameters);
     const desc = (a.description || "").replace(/\|/g, "\\|").replace(/\n/g, " ");
-    md += `| \`${a.action}\` | ${a.domain} | ${mut} | ${desc} |\n`;
+    md += `| \`${a.action}\` | ${a.domain} | ${mut} | ${paramsSig} | ${desc} |\n`;
   }
   return md;
 }
@@ -255,8 +269,9 @@ export async function executeAction(actionName, params = {}, options = {}) {
     return finalResult;
   } catch (error) {
     if (error instanceof z.ZodError) {
+      const issues = error.issues || error.errors || [];
       throw new Error(
-        `Invalid parameters for '${actionName}': ${error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`
+        `Invalid parameters for '${actionName}': ${issues.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`
       );
     }
     throw error;

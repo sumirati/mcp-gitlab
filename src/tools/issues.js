@@ -18,8 +18,7 @@ export const CreateIssueSchema = ProjectParamsSchema.extend({
 
 export const ListIssuesSchema = ProjectParamsSchema.extend({
   state: z.enum(["opened", "closed", "all"]).optional().default("all").describe("Filter by issue state (default: all)"),
-  milestone: z.string().optional().describe("Filter by milestone title, or 'None' for issues without milestones, or 'Any'"),
-  milestone_id: z.number().optional().describe("Filter by numeric milestone ID"),
+  milestone: z.string().optional().describe("Filter by milestone title (e.g. 'v1.0'), or 'None' for issues without milestones, or 'Any'"),
   labels: z.union([z.string(), z.array(z.string())]).optional().describe("Filter by label names (comma-separated or array)"),
   search: z.string().optional().describe("Search query matching issue title or description"),
   assignee_id: z.number().optional().describe("Filter by assignee user ID"),
@@ -140,7 +139,6 @@ export const issueHandlers = {
     const q = new URLSearchParams();
     if (parsed.state) q.append("state", parsed.state);
     if (parsed.milestone) q.append("milestone", parsed.milestone);
-    if (parsed.milestone_id !== undefined) q.append("milestone_id", parsed.milestone_id.toString());
     if (parsed.labels) q.append("labels", formatLabels(parsed.labels));
     if (parsed.search) q.append("search", parsed.search);
     if (parsed.assignee_id !== undefined) q.append("assignee_id", parsed.assignee_id.toString());
@@ -154,7 +152,7 @@ export const issueHandlers = {
 
     const res = await gitlabRequest(`/projects/${pId}/issues?${q.toString()}`);
     if (!parsed.verbose) {
-      const items = (res.items || res).map(summarizeIssue);
+      const items = (res.items || res).map((i) => summarizeIssue(i, false));
       return res.pagination ? { pagination: res.pagination, issues: items } : items;
     }
     return res;
@@ -163,7 +161,8 @@ export const issueHandlers = {
   get_issue: async (args) => {
     const parsed = GetIssueSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
-    return await gitlabRequest(`/projects/${pId}/issues/${parsed.issue_iid}`);
+    const res = await gitlabRequest(`/projects/${pId}/issues/${parsed.issue_iid}`);
+    return summarizeIssue(res, true);
   },
 
   create_issue: async (args) => {

@@ -18,8 +18,8 @@ export const GetProjectSchema = ProjectParamsSchema.extend({
 });
 
 export const CreateRepositorySchema = z.object({
-  name: z.string().describe("Repository / Project name (e.g. 'mcp-github' or 'my-new-service')"),
-  path: z.string().optional().describe("Repository path/slug (e.g. 'mcp-github'). Defaults to name if omitted."),
+  name: z.string().describe("Repository / Project name (e.g. 'mcp-gitlab' or 'my-new-service')"),
+  path: z.string().optional().describe("Repository path/slug (e.g. 'mcp-gitlab'). Defaults to name if omitted."),
   namespace: z
     .union([z.string(), z.number()])
     .optional()
@@ -45,7 +45,7 @@ export const DeleteProjectSchema = ProjectParamsSchema.extend({
 });
 
 export const GetFileContentsSchema = ProjectParamsSchema.extend({
-  file_path: z.string().describe("Path to the file or directory in repo (e.g. 'pom.xml' or 'docs/README.md')"),
+  file_path: z.string().describe("Path to the file or directory in repo (e.g. 'pom.xml', 'docs/README.md', or 'src' for directory tree)"),
   ref: z.string().optional().describe("Branch name, tag, or commit SHA (default: default branch / HEAD)"),
   outline_only: z
     .boolean()
@@ -66,18 +66,21 @@ export const CreateOrUpdateFileSchema = ProjectParamsSchema.extend({
 
 export const PushFilesSchema = ProjectParamsSchema.extend({
   branch: z.string().describe("Target branch to push to"),
-  commit_message: z.string().optional().describe("Git commit message for the batch commit"),
-  message: z.string().optional().describe("Alias for commit_message"),
+  commit_message: z.string().describe("Git commit message for the batch commit"),
   files: z
     .array(
       z.object({
-        file_path: z.string().optional().describe("Destination path for the file relative to repository root"),
-        path: z.string().optional().describe("Alias for file_path"),
-        content: z.string().describe("Full file content"),
+        file_path: z.string().describe("Destination path for the file relative to repository root"),
+        content: z.string().optional().describe("Full file content (required for create/update)"),
+        action: z
+          .enum(["create", "update", "delete", "move"])
+          .optional()
+          .describe("Commit action: 'create', 'update', 'delete', or 'move' (auto-detected via GET probe if omitted)"),
+        previous_path: z.string().optional().describe("Previous file path (required when action is 'move')"),
       })
     )
     .min(1)
-    .describe("Array of files to create/update in this single commit"),
+    .describe("Array of file operations (create, update, delete, or move) to commit atomically"),
 });
 
 export const CreateCommitSchema = PushFilesSchema;
@@ -221,7 +224,7 @@ export const repositoryHandlers = {
     if (parsed.description !== undefined) body.description = parsed.description;
     if (parsed.default_branch) body.default_branch = parsed.default_branch;
     if (parsed.visibility) body.visibility = parsed.visibility;
-    if (parsed.topics) body.topics = parsed.topics.join(",");
+    if (parsed.topics) body.topics = parsed.topics;
 
     const res = await gitlabRequest(`/projects/${pId}`, {
       method: "PUT",
@@ -256,15 +259,53 @@ export const repositoryHandlers = {
   get_file_contents: async (args) => {
     const parsed = GetFileContentsSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
-    const encodedPath = encodeURIComponent(parsed.file_path);
-    const ref = parsed.ref ? `?ref=${encodeURIComponent(parsed.ref)}` : "?ref=HEAD";
-    const res = await gitlabRequest(`/projects/${pId}/repository/files/${encodedPath}${ref}`);
-    if (res.content && res.encoding === "base64") {
+    const cleanPath = (parsed.file_path || "").trim().replace(/^\/+|\/+$/g, "");
+    const refVal = parsed.ref || "HEAD";
+
+    const fetchDirectoryTree = async () => {
+      const treeQuery = new URLSearchParams({ per_page: "100" });
+      if (cleanPath && cleanPath !== ".") treeQuery.append("path", cleanPath);
+      if (parsed.ref) treeQuery.append("ref", parsed.ref);
+      const treeRes = await gitlabRequest(`/projects/${pId}/repository/tree?${treeQuery.toString()}`);
+      const items = treeRes.items || treeRes || [];
+      return {
+        type: "directory",
+        path: cleanPath || "/",
+        ref: refVal,
+        entries: items.map((item) => ({
+          name: item.name,
+          path: item.path,
+          type: item.type,
+          mode: item.mode,
+        })),
+      };
+    };
+
+    if (!cleanPath || cleanPath === ".") {
+      return await fetchDirectoryTree();
+    }
+
+    const encodedPath = encodeURIComponent(cleanPath);
+    const refQuery = `?ref=${encodeURIComponent(refVal)}`;
+    let res;
+    try {
+      res = await gitlabRequest(`/projects/${pId}/repository/files/${encodedPath}${refQuery}`);
+    } catch (err) {
+      if (err.message && err.message.includes("404")) {
+        return await fetchDirectoryTree();
+      }
+      throw err;
+    }
+
+    if (res.content !== undefined && res.encoding === "base64") {
       res.decoded_content = Buffer.from(res.content, "base64").toString("utf-8");
+      delete res.content;
+      delete res.content_sha256;
+      delete res.blob_id;
+      delete res.execute_filemode;
 
       if (parsed.outline_only) {
-        res.outline = extractSymbolOutline(res.decoded_content, parsed.file_path);
-        delete res.content;
+        res.outline = extractSymbolOutline(res.decoded_content, cleanPath);
         delete res.decoded_content;
       } else if (parsed.start_line || parsed.end_line) {
         const lines = res.decoded_content.split(/\r?\n/);
@@ -272,7 +313,6 @@ export const repositoryHandlers = {
         const end = Math.min(lines.length, parsed.end_line || lines.length);
         res.decoded_content = lines.slice(start - 1, end).join("\n");
         res.sliced_lines = `${start}-${end} of ${lines.length}`;
-        delete res.content;
       }
     }
     return res;
@@ -312,26 +352,53 @@ export const repositoryHandlers = {
   push_files: async (args) => {
     const parsed = PushFilesSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
-    const commitMsg = parsed.commit_message || parsed.message;
-    if (!commitMsg || !commitMsg.trim()) {
-      throw new Error("Commit message is required (pass 'commit_message' or 'message')");
+    const commitMsg = parsed.commit_message.trim();
+    if (!commitMsg) {
+      throw new Error("Commit message ('commit_message') cannot be empty");
     }
 
     const actions = await Promise.all(
       parsed.files.map(async (file, idx) => {
-        const filePath = file.file_path || file.path;
-        if (!filePath || !filePath.trim()) {
-          throw new Error(`File at index ${idx} is missing 'file_path' or 'path'`);
+        const cleanPath = (file.file_path || "").trim().replace(/^\/+/, "");
+        if (!cleanPath) {
+          throw new Error(`File at index ${idx} has an empty 'file_path'`);
         }
-        const cleanPath = filePath.trim().replace(/^\/+/, "");
-        const encodedPath = encodeURIComponent(cleanPath);
-        let action = "create";
-        try {
-          await gitlabRequest(`/projects/${pId}/repository/files/${encodedPath}?ref=${encodeURIComponent(parsed.branch)}`);
-          action = "update";
-        } catch {
-          // File does not exist, keep action as create
+
+        let action = file.action;
+        if (!action) {
+          const encodedPath = encodeURIComponent(cleanPath);
+          action = "create";
+          try {
+            await gitlabRequest(`/projects/${pId}/repository/files/${encodedPath}?ref=${encodeURIComponent(parsed.branch)}`);
+            action = "update";
+          } catch {
+            // File does not exist, keep action as create
+          }
         }
+
+        if (action === "delete") {
+          return {
+            action: "delete",
+            file_path: cleanPath,
+          };
+        }
+
+        if (action === "move") {
+          if (!file.previous_path) {
+            throw new Error(`File '${cleanPath}' has action 'move' and requires 'previous_path'`);
+          }
+          return {
+            action: "move",
+            file_path: cleanPath,
+            previous_path: file.previous_path.trim().replace(/^\/+/, ""),
+            ...(file.content !== undefined ? { content: file.content } : {}),
+          };
+        }
+
+        if (file.content === undefined) {
+          throw new Error(`File '${cleanPath}' is missing 'content' (required for ${action})`);
+        }
+
         return {
           action,
           file_path: cleanPath,

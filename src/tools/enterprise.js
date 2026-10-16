@@ -44,7 +44,7 @@ export const enterpriseTools = [
   {
     name: "list_push_mirrors",
     title: "List Push Mirrors",
-    description: "List remote push mirrors configured for a project, including synchronization status, target URLs, and last error diagnostics. Essential for verifying repository synchronization between local self-hosted instances and GitHub/GitLab.com.",
+    description: "List remote push mirrors configured for a project, including synchronization status, target URLs, and last error diagnostics. Essential for verifying repository synchronization between local self-hosted instances and upstream GitLab instances or remote Git hosts.",
     inputSchema: zodToJsonSchema(ListPushMirrorsSchema),
   },
   {

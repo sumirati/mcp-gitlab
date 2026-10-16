@@ -9,7 +9,6 @@ import { z } from "zod";
 
 import { isReadOnly } from "./src/client.js";
 import { zodToJsonSchema } from "./src/schemas.js";
-import { jsonToMarkdown } from "./src/helpers.js";
 import {
   findActions,
   executeAction,
@@ -112,35 +111,15 @@ function shouldExposeAllTools() {
   );
 }
 
-function formatResult(result, format = DEFAULT_FORMAT) {
+function formatResult(result) {
   if (result && Array.isArray(result.content)) {
     return result;
-  }
-  if (typeof result === "string") {
-    return {
-      content: [
-        {
-          type: "text",
-          text: result,
-        },
-      ],
-    };
-  }
-  if (format === "markdown") {
-    return {
-      content: [
-        {
-          type: "text",
-          text: jsonToMarkdown(result),
-        },
-      ],
-    };
   }
   return {
     content: [
       {
         type: "text",
-        text: JSON.stringify(result, null, 2),
+        text: typeof result === "string" ? result : JSON.stringify(result, null, 2),
       },
     ],
   };
@@ -177,19 +156,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "gitlab_find_actions") {
       const parsed = FindActionsSchema.parse(args || {});
       const result = findActions(parsed);
-      return formatResult(result, parsed.format);
+      return formatResult(result);
     }
 
     if (name === "gitlab_execute_action") {
       const parsed = ExecuteActionSchema.parse(args || {});
       const actionParams = parsed.parameters || parsed.params || {};
       const result = await executeAction(parsed.action, actionParams, { format: parsed.format });
-      return formatResult(result, parsed.format);
+      return formatResult(result);
     }
 
     // Direct invocation: handles eager tools AND graceful fallback if any catalog action is called directly
-    const result = await executeAction(name, args || {});
-    return formatResult(result, args?.format);
+    const result = await executeAction(name, args || {}, { format: args?.format });
+    return formatResult(result);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(

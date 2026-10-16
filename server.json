@@ -36,9 +36,15 @@
           "isRequired": false
         },
         {
-          "name": "GITLAB_TOOL_DOMAINS",
-          "description": "Comma-separated domain whitelist to restrict registered tools and preserve context window tokens (e.g. 'repositories,merge-requests,issues')",
-          "default": "*",
+          "name": "GITLAB_EXPOSE_ALL_TOOLS",
+          "description": "Set to true to expose all 90 catalog actions directly on ListTools instead of the 5-tool hybrid surface",
+          "default": "false",
+          "isRequired": false
+        },
+        {
+          "name": "MCP_OUTPUT_FORMAT",
+          "description": "Default output format: 'markdown' (default, compact tables) or 'json'",
+          "default": "markdown",
           "isRequired": false
         }
       ]
