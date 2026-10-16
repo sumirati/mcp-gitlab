@@ -96,7 +96,7 @@ try {
 }
 
 // Test 6: projectOutput hardening (html_url, web_url, empty collections, depth guard)
-import { projectOutput } from "../src/helpers.js";
+import { projectOutput, stripAnsi, extractSmartJobLog, extractSymbolOutline } from "../src/helpers.js";
 
 // Verify html_url and web_url preservation
 const samplePayload = {
@@ -130,5 +130,44 @@ for (let i = 1; i <= 40; i++) {
 const depthTested = projectOutput(deepObj, 0, 32);
 assert(depthTested !== undefined, "Deep object should not throw call-stack exhaustion");
 console.log("[PASS] projectOutput recursion depth guard (maxDepth = 32) verified");
+
+// Test 7: stripAnsi and extractSmartJobLog
+const rawAnsiLog = "\x1B[31mError:\x1B[0m compilation failed\nLine 2\nLine 3";
+assert.strictEqual(stripAnsi(rawAnsiLog), "Error: compilation failed\nLine 2\nLine 3");
+
+// Test smart failure extraction
+const mockJobTrace = Array.from({ length: 300 }, (_, i) => `Log line ${i + 1}`).join("\n") +
+  "\nFAIL: test_authentication_failed\nExpected 200 got 401\n" +
+  Array.from({ length: 100 }, (_, i) => `Teardown line ${i + 1}`).join("\n");
+
+const smartExtracted = extractSmartJobLog(mockJobTrace, { tail_lines: 50, smart_failure: true });
+assert(smartExtracted.includes("=== DETECTED FAILURE BLOCK"), "Must contain detected failure block");
+assert(smartExtracted.includes("FAIL: test_authentication_failed"), "Must contain the failure anchor");
+assert(smartExtracted.includes("=== JOB TEARDOWN TAIL ==="), "Must contain teardown tail");
+console.log("[PASS] stripAnsi and extractSmartJobLog failure anchor extraction verified");
+
+// Test 8: extractSymbolOutline
+const mockCode = `
+import fs from "node:fs";
+
+export class ProjectManager {
+  constructor() {}
+  async fetchRemote() {}
+}
+
+export function calculateMetrics(input) {
+  return 42;
+}
+
+const formatHelper = (str) => {
+  return str.trim();
+};
+`;
+const outline = extractSymbolOutline(mockCode, "test.js");
+assert(outline.includes("=== SYMBOL OUTLINE"), "Outline must have header");
+assert(outline.includes("export class ProjectManager"), "Outline must include ProjectManager");
+assert(outline.includes("export function calculateMetrics"), "Outline must include calculateMetrics");
+assert(outline.includes("const formatHelper"), "Outline must include formatHelper");
+console.log("[PASS] extractSymbolOutline AST/regex signature extraction verified");
 
 console.log("ALL GITLAB CLIENT RESILIENCE & PROJECTION TESTS PASSED!\n");

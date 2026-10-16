@@ -53,6 +53,8 @@ const FindActionsSchema = z.object({
     .describe("Output format: 'markdown' (default, compact human/LLM-readable text table) or 'json' (structured object with parameter schemas)"),
 });
 
+const DEFAULT_FORMAT = process.env.MCP_OUTPUT_FORMAT === "json" ? "json" : "markdown";
+
 const ExecuteActionSchema = z.object({
   action: z
     .string()
@@ -70,8 +72,8 @@ const ExecuteActionSchema = z.object({
   format: z
     .enum(["json", "markdown"])
     .optional()
-    .default("json")
-    .describe("Output format: 'json' (default) or 'markdown' (compact human/LLM-readable text)"),
+    .default(DEFAULT_FORMAT)
+    .describe("Output format: 'markdown' (default, token-optimized compact table/text for LLM) or 'json' (structured JSON)"),
 });
 
 const META_TOOLS = [
@@ -110,7 +112,7 @@ function shouldExposeAllTools() {
   );
 }
 
-function formatResult(result, format = "json") {
+function formatResult(result, format = DEFAULT_FORMAT) {
   if (result && Array.isArray(result.content)) {
     return result;
   }

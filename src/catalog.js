@@ -247,9 +247,10 @@ export async function executeAction(actionName, params = {}, options = {}) {
     const rawResult = await entry.handler(params || {});
     const projected = projectOutput(rawResult);
     const finalResult = projected !== undefined ? projected : rawResult;
-    const requestedFormat = options.format || (params && params.format);
+    const defaultFormat = process.env.MCP_OUTPUT_FORMAT === "json" ? "json" : "markdown";
+    const requestedFormat = options.format || (params && params.format) || defaultFormat;
     if (requestedFormat === "markdown") {
-      return jsonToMarkdown(finalResult);
+      return jsonToMarkdown(finalResult, actionName);
     }
     return finalResult;
   } catch (error) {

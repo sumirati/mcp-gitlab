@@ -7,7 +7,7 @@ import { ProjectParamsSchema } from "../schemas.js";
 // Schemas
 export const ListSnippetsSchema = ProjectParamsSchema.extend({
   page: z.number().optional().default(1),
-  per_page: z.number().optional().default(20),
+  per_page: z.number().optional().default(10),
 });
 
 export const GetSnippetSchema = ProjectParamsSchema.extend({

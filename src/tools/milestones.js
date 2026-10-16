@@ -10,7 +10,7 @@ export const ListMilestonesSchema = ProjectParamsSchema.extend({
   search: z.string().optional().describe("Search query to filter milestones by title"),
   include_ancestor_groups: z.boolean().optional().default(true).describe("Include milestones from ancestor groups (default: true)"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of milestones per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of milestones per page (default: 10, max: 100)"),
 });
 
 export const GetMilestoneSchema = ProjectParamsSchema.extend({
@@ -37,7 +37,7 @@ export const ListLabelsSchema = ProjectParamsSchema.extend({
   search: z.string().optional().describe("Search query to filter labels"),
   include_ancestor_groups: z.boolean().optional().default(true).describe("Include labels from ancestor groups (default: true)"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(50).describe("Number of labels per page (default: 50, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of labels per page (default: 10, max: 100)"),
 });
 
 export const CreateLabelSchema = ProjectParamsSchema.extend({

@@ -1,19 +1,8 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
 import { gitlabRequest, formatProjectId, formatLabels } from "../client.js";
-import { resolveMilestoneId, summarizeMR } from "../helpers.js";
+import { resolveMilestoneId, summarizeMR, isLockfile } from "../helpers.js";
 import { ProjectParamsSchema } from "../schemas.js";
-
-const LOCKFILES = [
-  "package-lock.json",
-  "yarn.lock",
-  "pnpm-lock.yaml",
-  "Cargo.lock",
-  "poetry.lock",
-  "Gemfile.lock",
-  "composer.lock",
-  "go.sum",
-];
 
 // Schemas
 export const ListMergeRequestsSchema = ProjectParamsSchema.extend({
@@ -32,7 +21,7 @@ export const ListMergeRequestsSchema = ProjectParamsSchema.extend({
   sort: z.enum(["asc", "desc"]).optional().default("desc").describe("Sort direction"),
   search: z.string().optional().describe("Search query for title and description"),
   page: z.number().optional().default(1),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of MRs per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of MRs per page (default: 10, max: 100)"),
 });
 
 export const GetMergeRequestSchema = ProjectParamsSchema.extend({
@@ -77,7 +66,7 @@ export const ListMergeRequestDiscussionsSchema = ProjectParamsSchema.extend({
   merge_request_iid: z.number().describe("Merge request IID"),
   unresolved_only: z.boolean().optional().default(false).describe("If true, returns only unresolved discussions that need attention"),
   page: z.number().optional().default(1),
-  per_page: z.number().min(1).max(100).optional().default(50).describe("Number of discussions per page (default: 50, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of discussions per page (default: 10, max: 100)"),
 });
 
 export const CreateDiffDiscussionSchema = ProjectParamsSchema.extend({
@@ -304,11 +293,7 @@ export const mergeRequestHandlers = {
 
     // 1. Lockfile filter
     if (parsed.ignore_lockfiles) {
-      changes = changes.filter((c) => {
-        const p = c.new_path || c.old_path || "";
-        const filename = p.split("/").pop();
-        return !LOCKFILES.includes(filename);
-      });
+      changes = changes.filter((c) => !isLockfile(c.new_path || c.old_path));
     }
 
     // 2. Single file filter

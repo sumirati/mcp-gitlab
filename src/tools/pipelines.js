@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
 import { gitlabRequest, formatProjectId } from "../client.js";
-import { summarizePipeline, summarizeJob } from "../helpers.js";
+import { summarizePipeline, summarizeJob, extractSmartJobLog } from "../helpers.js";
 import { ProjectParamsSchema } from "../schemas.js";
 
 // Schemas
@@ -16,7 +16,7 @@ export const ListPipelinesSchema = ProjectParamsSchema.extend({
   order_by: z.enum(["id", "status", "ref", "updated_at"]).optional().default("id").describe("Order pipelines by id, status, ref, or updated_at"),
   sort: z.enum(["asc", "desc"]).optional().default("desc").describe("Sort direction (default: desc)"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of pipelines per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of pipelines per page (default: 10, max: 100)"),
 });
 
 export const GetPipelineSchema = ProjectParamsSchema.extend({
@@ -44,7 +44,7 @@ export const ListPipelineJobsSchema = ProjectParamsSchema.extend({
     .optional()
     .describe("Filter jobs by execution status"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(50).describe("Number of jobs per page (default: 50, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of jobs per page (default: 10, max: 100)"),
 });
 
 export const GetJobSchema = ProjectParamsSchema.extend({
@@ -58,6 +58,16 @@ export const GetJobTraceSchema = ProjectParamsSchema.extend({
     .optional()
     .default(250)
     .describe("Number of trailing lines from log to return (prevents overflowing context, default: 250, 0 for all)"),
+  strip_ansi: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Strip ANSI terminal color and control escape sequences (default: true)"),
+  smart_failure: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Automatically detect and extract the failure stack trace / error block with context lines instead of only blind tailing (default: true)"),
 });
 
 export const GetJobArtifactFileSchema = ProjectParamsSchema.extend({
@@ -206,14 +216,14 @@ export const pipelineHandlers = {
     const parsed = GetJobTraceSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
     const rawLog = await gitlabRequest(`/projects/${pId}/jobs/${parsed.job_id}/trace`, {}, "text");
-    let output = rawLog;
-    if (parsed.tail_lines > 0) {
-      const lines = rawLog.split("\n");
-      if (lines.length > parsed.tail_lines) {
-        output = `[... Truncated first ${lines.length - parsed.tail_lines} lines ...]\n` + lines.slice(-parsed.tail_lines).join("\n");
-      }
+    if (parsed.tail_lines === 0 && !parsed.strip_ansi && !parsed.smart_failure) {
+      return rawLog;
     }
-    return output;
+    return extractSmartJobLog(rawLog, {
+      tail_lines: parsed.tail_lines,
+      strip_ansi: parsed.strip_ansi,
+      smart_failure: parsed.smart_failure,
+    });
   },
 
   get_job_artifact_file: async (args) => {

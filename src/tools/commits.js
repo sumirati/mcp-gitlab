@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
 import { gitlabRequest, formatProjectId } from "../client.js";
-import { summarizeCommit } from "../helpers.js";
+import { summarizeCommit, isLockfile } from "../helpers.js";
 import { ProjectParamsSchema } from "../schemas.js";
 
 // Schemas
@@ -14,7 +14,7 @@ export const ListCommitsSchema = ProjectParamsSchema.extend({
   order: z.enum(["default", "topo"]).optional().default("default").describe("Order commits by commit date (default) or topological order"),
   with_message: z.boolean().optional().default(false).describe("If true, includes full multi-paragraph commit message body. Default is false (headline only) to conserve tokens."),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of commits per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of commits per page (default: 10, max: 100)"),
 });
 
 export const GetCommitSchema = ProjectParamsSchema.extend({
@@ -22,6 +22,8 @@ export const GetCommitSchema = ProjectParamsSchema.extend({
   with_diff: z.boolean().optional().default(true).describe("If true, includes file diffs for the commit"),
   file_path: z.string().optional().describe("Filter diffs to only this specific file (prevents token blowout on large multi-file commits)"),
   max_diff_lines: z.number().optional().default(500).describe("Maximum lines of diff text to return per file (default: 500)"),
+  ignore_lockfiles: z.boolean().optional().default(true).describe("If true, automatically collapses diffs for lockfiles and minified assets (default: true)"),
+  format: z.enum(["json", "markdown"]).optional().default("markdown").describe("Output format: 'markdown' (default) or 'json'"),
 });
 
 // Tool Definitions
@@ -103,7 +105,9 @@ export const commitHandlers = {
 
       result.diffs = filteredDiffs.map((d) => {
         let diffText = d.diff;
-        if (parsed.max_diff_lines > 0) {
+        if (parsed.ignore_lockfiles !== false && isLockfile(d.new_path || d.old_path)) {
+          diffText = `[... Diff collapsed for lockfile: ${d.new_path || d.old_path}. Pass ignore_lockfiles: false to view full diff ...]`;
+        } else if (parsed.max_diff_lines > 0) {
           const lines = diffText.split("\n");
           if (lines.length > parsed.max_diff_lines) {
             diffText = lines.slice(0, parsed.max_diff_lines).join("\n") + `\n\n[... Truncated ${lines.length - parsed.max_diff_lines} lines of diff ...]`;

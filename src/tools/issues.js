@@ -29,7 +29,7 @@ export const ListIssuesSchema = ProjectParamsSchema.extend({
   order_by: z.enum(["created_at", "updated_at", "priority", "due_date"]).optional().default("created_at").describe("Field to sort by"),
   sort: z.enum(["asc", "desc"]).optional().default("desc").describe("Sort direction"),
   page: z.number().optional().default(1).describe("Page number for pagination"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Items per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Items per page (default: 10, max: 100)"),
   verbose: z.boolean().optional().default(false).describe("If true, returns full raw GitLab objects instead of clean summaries"),
 });
 
@@ -56,7 +56,7 @@ export const ListIssueNotesSchema = ProjectParamsSchema.extend({
   sort: z.enum(["asc", "desc"]).optional().default("asc").describe("Sort direction for comments"),
   order_by: z.enum(["created_at", "updated_at"]).optional().default("created_at"),
   page: z.number().optional().default(1),
-  per_page: z.number().min(1).max(100).optional().default(50).describe("Number of notes per page (default: 50, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of notes per page (default: 10, max: 100)"),
 });
 
 export const CreateIssueNoteSchema = ProjectParamsSchema.extend({

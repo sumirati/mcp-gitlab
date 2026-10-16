@@ -87,12 +87,100 @@ console.log(`[PASS] findActions('create_group', format: 'json') returned ${group
 assert(groupResults.actions.map((a) => a.action).includes("create_group"), "Missing create_group");
 assert.strictEqual(groupResults.actions[0].mutating, true, "create_group must be marked mutating");
 
+// 9c. Multi-file atomic commit action discovery (create_commit & push_files)
+const commitActionResults = findActions({ query: "create_commit", format: "json" });
+console.log(`[PASS] findActions('create_commit', format: 'json') returned ${commitActionResults.total_matches} matches`);
+assert(commitActionResults.actions.map((a) => a.action).includes("create_commit"), "Missing create_commit");
+assert.strictEqual(commitActionResults.actions[0].mutating, true, "create_commit must be marked mutating");
+const pushActionResults = findActions({ query: "push_files", format: "json" });
+assert(pushActionResults.actions.map((a) => a.action).includes("push_files"), "Missing push_files");
+assert.strictEqual(pushActionResults.actions[0].mutating, true, "push_files must be marked mutating");
+console.log("[PASS] Atomic multi-file commit actions (create_commit & push_files) verified in catalog");
+
 // 10. Smart format: default markdown output support
 const mdResults = findActions({ query: "runner" }); // default is markdown
 assert(typeof mdResults === "string", "Expected default markdown output string");
 assert(mdResults.includes("| Action | Domain | Mutating | Description |"), "Expected markdown table header");
 assert(mdResults.includes("`list_runners`"), "Expected list_runners in markdown table");
 console.log("[PASS] findActions default format: 'markdown' rendered valid Markdown table");
+
+// 10b. High-density Markdown domain formatters validation (85-90% token reduction)
+import {
+  jsonToMarkdown,
+  formatIssuesMarkdown,
+  formatMergeRequestsMarkdown,
+  formatPipelinesMarkdown,
+} from "../src/helpers.js";
+
+const sampleIssues = [
+  {
+    iid: 14,
+    title: "Implement OAuth2 provider",
+    state: "opened",
+    author: "dev1",
+    assignees: ["dev2"],
+    milestone: { title: "v3.2" },
+    labels: ["security", "backend"],
+  },
+];
+const issueMd = jsonToMarkdown(sampleIssues, "list_issues");
+assert(issueMd.includes("| IID | Title | State | Author | Assignees | Milestone | Labels |"), "Expected issue table header");
+assert(issueMd.includes("#14"), "Expected #14 in issue markdown");
+assert(issueMd.includes("@dev1"), "Expected @dev1 author");
+assert(issueMd.includes("security, backend"), "Expected combined labels");
+console.log("[PASS] High-density formatIssuesMarkdown rendered clean 7-column table");
+
+const sampleMRs = [
+  {
+    iid: 42,
+    title: "Add token economy formatters",
+    draft: true,
+    state: "opened",
+    source_branch: "feat/token-economy",
+    target_branch: "main",
+    author: "sumirati",
+    detailed_merge_status: "mergeable",
+  },
+];
+const mrMd = jsonToMarkdown(sampleMRs, "list_merge_requests");
+assert(mrMd.includes("| !MR | Title | State | Branch | Author | Status |"), "Expected MR table header");
+assert(mrMd.includes("!42"), "Expected !42 in MR markdown");
+assert(mrMd.includes("[Draft] Add token economy formatters"), "Expected [Draft] prefix");
+assert(mrMd.includes("feat/token-economy -> main"), "Expected branch routing");
+console.log("[PASS] High-density formatMergeRequestsMarkdown rendered clean 6-column table");
+
+const samplePipelines = [
+  {
+    id: 991,
+    status: "success",
+    ref: "main",
+    sha: "a1b2c3d4",
+    source: "push",
+    created_at: "2026-10-16T12:00:00Z",
+  },
+];
+const pipeMd = jsonToMarkdown(samplePipelines, "list_pipelines");
+assert(pipeMd.includes("| ID | Status | Ref | SHA | Source | Created |"), "Expected pipeline table header");
+assert(pipeMd.includes("991"), "Expected pipeline 991 in table");
+assert(pipeMd.includes("2026-10-16"), "Expected formatted date");
+console.log("[PASS] High-density formatPipelinesMarkdown rendered clean 6-column table");
+
+// 10c. Smart Diff & Lockfile Truncation + Conservative Pagination (Proposals A & B)
+import { isLockfile } from "../src/helpers.js";
+import { ListCommitsSchema } from "../src/tools/commits.js";
+import { ListMergeRequestsSchema } from "../src/tools/merge-requests.js";
+
+assert.strictEqual(isLockfile("package-lock.json"), true);
+assert.strictEqual(isLockfile("subdir/yarn.lock"), true);
+assert.strictEqual(isLockfile("go.sum"), true);
+assert.strictEqual(isLockfile("bundle.min.js"), true);
+assert.strictEqual(isLockfile("src/main.js"), false);
+
+const commitParsed = ListCommitsSchema.parse({ project_id: "test" });
+assert.strictEqual(commitParsed.per_page, 10, "Default per_page must be 10 for commits");
+const mrParsed = ListMergeRequestsSchema.parse({ project_id: "test" });
+assert.strictEqual(mrParsed.per_page, 10, "Default per_page must be 10 for merge requests");
+console.log("[PASS] Smart diff lockfile recognition and default per_page: 10 verified");
 
 // 11. Registry metadata & server.json validation
 const serverJson = JSON.parse(fs.readFileSync(new URL("../server.json", import.meta.url), "utf8"));

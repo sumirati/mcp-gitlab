@@ -9,7 +9,7 @@ export const ListReleasesSchema = ProjectParamsSchema.extend({
   order_by: z.enum(["released_at", "created_at"]).optional().default("released_at").describe("Order releases by released_at or created_at"),
   sort: z.enum(["asc", "desc"]).optional().default("desc").describe("Sort direction (default: desc)"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of releases per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of releases per page (default: 10, max: 100)"),
 });
 
 export const GetReleaseSchema = ProjectParamsSchema.extend({
@@ -29,7 +29,7 @@ export const ListTagsSchema = ProjectParamsSchema.extend({
   order_by: z.enum(["name", "updated", "version"]).optional().default("updated").describe("Order tags by name, updated, or version"),
   sort: z.enum(["asc", "desc"]).optional().default("desc").describe("Sort direction (default: desc)"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of tags per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of tags per page (default: 10, max: 100)"),
 });
 
 export const CreateTagSchema = ProjectParamsSchema.extend({

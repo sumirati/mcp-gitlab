@@ -17,7 +17,7 @@ In early MCP servers, dumping 50–100 tools into the client's tool list consume
 - **Glama TDQS Coherence Tier A (5/5)**: By exposing exactly 5 tools to the client, the server sits in the ideal 3–15 tool coherence sweet spot.
 - **Ultra-Lean System Prompt Tax**: Drops schema overhead from ~11,200 tokens to **~450 tokens** (96% reduction), preserving context windows and maximizing LLM prompt-cache hits.
 - **Zero-Hop Hourly Drivers**: The 3 operations developers and agents actually use constantly during pair-programming (`get_file_contents`, `get_project`, `get_commit`) remain eager tools for instant zero-hop execution.
-- **100% Platform Access on Demand**: The entire platform surface of **86 actions across 14 domains** is accessible on-demand via dynamic action discovery (`gitlab_find_actions` $\rightarrow$ `gitlab_execute_action`), supporting both JSON and Markdown output (`format: "json" | "markdown"`).
+- **100% Platform Access on Demand**: The entire platform surface of **88 actions across 14 domains** is accessible on-demand via dynamic action discovery (`gitlab_find_actions` $\rightarrow$ `gitlab_execute_action`), delivering **85%–90% token savings** with default high-density Markdown tables and summaries (`format: "markdown" | "json"`).
 - **Resilient Fallback**: If an agent directly invokes any catalog action name (e.g. `list_pipelines`), the server dynamically executes it with full input validation and projection.
 
 ```text
@@ -29,7 +29,7 @@ LLM Prompt Context (~450 tokens total):
 └── 5. get_commit(projectId, sha)                         [Eager Daily Driver #3]
 
 Under the hood (Dynamic Registry):
-└── 86 Curated Actions across 14 Domains (with 77%–98% token reduction projections)
+└── 88 Curated Actions across 14 Domains (with 85%–98% token reduction projections)
 ```
 
 ---
@@ -134,7 +134,7 @@ All 82 actions feature strict input validation and field-mask projections (77%�
 | `get_runner_status` | Get detailed health metrics, architecture, tags, and contact time for a runner | No |
 | `list_project_hooks` | List configured project webhooks and subscribed event triggers | No |
 
-### 3. Repository & Project Management (7 actions)
+### 3. Repository & Project Management (8 actions)
 | Action | Description | Mutating? |
 | :--- | :--- | :---: |
 | `search_repositories` | Search projects by name across GitLab or scoped to a group | No |
@@ -143,6 +143,7 @@ All 82 actions feature strict input validation and field-mask projections (77%�
 | `delete_project` | Permanently delete a project (requires explicit safety confirmation) | **Yes** |
 | `create_or_update_file` | Create or update a single file with an immediate Git commit | **Yes** |
 | `push_files` | Atomically commit multiple file additions, edits, or deletions in one commit | **Yes** |
+| `create_commit` | Alias for `push_files`: atomically commit multiple files via GitLab Commits API | **Yes** |
 | `fork_repository` | Fork an existing project into a designated user namespace or group | **Yes** |
 
 ### 4. Branch Governance (4 actions)
@@ -253,11 +254,17 @@ All 82 actions feature strict input validation and field-mask projections (77%�
 
 | Operation | Standard GitLab API | `@sumirati/mcp-gitlab` | Token Reduction |
 | :--- | :---: | :---: | :---: |
-| **System Prompt Tax (5 tools vs 77 tools)** | ~11,200 tokens | **~450 tokens** | **96% savings** |
+| **System Prompt Tax (5 tools vs 88 actions)** | ~14,200 tokens | **~450 tokens** | **96.8% savings** |
 | `get_project` (Single project inspect) | 1,850 tokens | 210 tokens | **88.6% savings** |
 | `list_merge_requests` (10 MRs) | 8,900 tokens | 940 tokens | **89.4% savings** |
 | `list_pipelines` (10 runs) | 4,200 tokens | 620 tokens | **85.2% savings** |
 | `get_merge_request_changes` (Diff review) | 48,000+ tokens | ~3,200 tokens | **93.3% savings** |
+
+### Key Token Optimization Pillars:
+- **Smart Diff & Lockfile Truncation**: Commit diffs (`get_commit`) and MR changes (`get_merge_request_changes`) automatically collapse dependency lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.sum`, `Cargo.lock`, `*.min.js`) via `ignore_lockfiles: true` by default, saving 1,000–3,000 tokens per review. Pass `ignore_lockfiles: false` if full lockfile diffs are required.
+- **Conservative Default Pagination**: All list actions default to `per_page: 10` (max: 100), eliminating token waste from loading 20–50 items when only recent entries are needed.
+- **Default High-Density Markdown Format**: Discovery (`gitlab_find_actions`), execution (`gitlab_execute_action`), project info (`get_project`), and commit inspection (`get_commit`) default to `format: "markdown"`, yielding 85–90% token reductions over raw JSON.
+- **Recursive Output Projection Filter (`projectOutput`)**: Strips noise metadata keys (`_links`, `avatar_url`, `gravatar_id`, `node_id`, `site_admin`, navigation URLs, internal API links, and null/empty fields) before payloads reach LLM context.
 
 ---
 
@@ -268,10 +275,13 @@ All 82 actions feature strict input validation and field-mask projections (77%�
 - [x] Client error resilience (401 probe disambiguation, 403 insufficient scope, 429 rate limit backoff, 201 ghost write guard)
 - [x] Hardened output projection with recursion depth guard (`maxDepth = 32`) and empty collection preservation
 - [x] Nested subgroup hierarchy management (`create_group` with `parent_id`)
+- [x] Smart CI/CD failure log extraction & ANSI sequence stripping in `get_job_trace` (`strip_ansi`, `smart_failure`)
+- [x] Outline-first code symbol extraction & line range slicing in `get_file_contents` (`outline_only`, `start_line`, `end_line`)
 - [ ] Pre-flight mergeability & conflict verification (`get_mergeability`)
 - [ ] Token scope self-auditing & permission pre-flight
 
 ### Future Horizons (v3.x)
+- [ ] Standardized collection `_summary` headers to facilitate multi-turn history pruning in LiteLLM / Eigent agent orchestration
 - [ ] Remote Transports: Streamable SSE and HTTP remote server modes
 - [ ] Scoped GraphQL query engine for relational deep inspections
 - [ ] DevSecOps vulnerability & secret scanning alert queries

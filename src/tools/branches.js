@@ -8,7 +8,7 @@ import { summarizeBranch, summarizeProtectedBranch, resolveAccessLevel } from ".
 export const ListBranchesSchema = ProjectParamsSchema.extend({
   search: z.string().optional().describe("Search query to filter branch names (e.g. 'feature')"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of branches per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of branches per page (default: 10, max: 100)"),
 });
 
 export const GetBranchSchema = ProjectParamsSchema.extend({
@@ -27,7 +27,7 @@ export const DeleteBranchSchema = ProjectParamsSchema.extend({
 export const ListProtectedBranchesSchema = ProjectParamsSchema.extend({
   search: z.string().optional().describe("Search query to filter protected branch names or wildcard rules"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of branches per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of branches per page (default: 10, max: 100)"),
 });
 
 export const ProtectBranchSchema = ProjectParamsSchema.extend({

@@ -9,7 +9,7 @@ export const SystemHealthCheckSchema = z.object({});
 
 export const ListPushMirrorsSchema = ProjectParamsSchema.extend({
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().optional().default(20).describe("Number of mirrors per page (default: 20)"),
+  per_page: z.number().optional().default(10).describe("Number of mirrors per page (default: 10)"),
 });
 
 export const TriggerPushMirrorSyncSchema = ProjectParamsSchema.extend({
@@ -21,7 +21,7 @@ export const ListRunnersSchema = z.object({
   type: z.enum(["instance_type", "group_type", "project_type"]).optional().describe("Filter runners by type"),
   status: z.enum(["active", "paused", "online", "offline"]).optional().describe("Filter runners by status"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().optional().default(20).describe("Number of runners per page (default: 20)"),
+  per_page: z.number().optional().default(10).describe("Number of runners per page (default: 10)"),
 });
 
 export const GetRunnerStatusSchema = z.object({
@@ -30,7 +30,7 @@ export const GetRunnerStatusSchema = z.object({
 
 export const ListProjectHooksSchema = ProjectParamsSchema.extend({
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().optional().default(20).describe("Number of hooks per page (default: 20)"),
+  per_page: z.number().optional().default(10).describe("Number of hooks per page (default: 10)"),
 });
 
 // Tool Definitions

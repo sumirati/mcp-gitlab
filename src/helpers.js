@@ -352,6 +352,27 @@ export function summarizeHook(h) {
   };
 }
 
+export const LOCKFILES = new Set([
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  "cargo.lock",
+  "poetry.lock",
+  "gemfile.lock",
+  "composer.lock",
+  "go.sum",
+  "mix.lock",
+  "podfile.lock",
+]);
+
+export function isLockfile(filePath) {
+  if (!filePath) return false;
+  const filename = filePath.split("/").pop().toLowerCase();
+  if (LOCKFILES.has(filename)) return true;
+  if (filename.endsWith(".min.js") || filename.endsWith(".min.css") || filename.endsWith(".map")) return true;
+  return false;
+}
+
 const NOISE_KEYS = new Set([
   "_links",
   "avatar_url",
@@ -398,42 +419,300 @@ export function projectOutput(val, depth = 0, maxDepth = 32) {
 }
 
 /**
- * Converts structured JSON/object responses into clean, compact Markdown
+ * Renders a high-density Markdown table from an array of items and column definitions.
+ * Column def: { header: string, get: (item) => string }
  */
-export function jsonToMarkdown(data) {
+export function renderMarkdownTable(items, columns) {
+  if (!items || items.length === 0) {
+    return "_No items found._";
+  }
+  const headers = columns.map((c) => c.header);
+  const headerLine = `| ${headers.join(" | ")} |`;
+  const dividerLine = `| ${columns.map(() => ":---").join(" | ")} |`;
+  const rows = items.map((item) => {
+    const cells = columns.map((c) => {
+      const val = c.get(item);
+      if (val === null || val === undefined || val === "") return "-";
+      return String(val).replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
+    });
+    return `| ${cells.join(" | ")} |`;
+  });
+  return [headerLine, dividerLine, ...rows].join("\n");
+}
+
+export function formatIssuesMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.issues || [];
+  const prefix = data?.pagination ? `### Issues (Page ${data.pagination.page}/${data.pagination.total_pages || 1}, Total: ${data.pagination.total})\n\n` : "";
+  return prefix + renderMarkdownTable(items, [
+    { header: "IID", get: (i) => `#${i.iid || i.id}` },
+    { header: "Title", get: (i) => i.title },
+    { header: "State", get: (i) => i.state },
+    { header: "Author", get: (i) => (i.author ? `@${i.author}` : "-") },
+    { header: "Assignees", get: (i) => (Array.isArray(i.assignees) && i.assignees.length ? i.assignees.map((a) => `@${a}`).join(", ") : "-") },
+    { header: "Milestone", get: (i) => (i.milestone ? (i.milestone.title || i.milestone) : "-") },
+    { header: "Labels", get: (i) => (Array.isArray(i.labels) && i.labels.length ? i.labels.join(", ") : "-") },
+  ]);
+}
+
+export function formatMergeRequestsMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.merge_requests || [];
+  const prefix = data?.pagination ? `### Merge Requests (Page ${data.pagination.page}/${data.pagination.total_pages || 1}, Total: ${data.pagination.total})\n\n` : "";
+  return prefix + renderMarkdownTable(items, [
+    { header: "!MR", get: (m) => `!${m.iid || m.id}` },
+    { header: "Title", get: (m) => (m.draft ? `[Draft] ${m.title}` : m.title) },
+    { header: "State", get: (m) => m.state },
+    { header: "Branch", get: (m) => `\`${m.source_branch} -> ${m.target_branch}\`` },
+    { header: "Author", get: (m) => (m.author ? `@${m.author}` : "-") },
+    { header: "Status", get: (m) => m.detailed_merge_status || m.merge_status || "-" },
+  ]);
+}
+
+export function formatPipelinesMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.pipelines || [];
+  const prefix = data?.pagination ? `### Pipelines (Page ${data.pagination.page}/${data.pagination.total_pages || 1}, Total: ${data.pagination.total})\n\n` : "";
+  return prefix + renderMarkdownTable(items, [
+    { header: "ID", get: (p) => p.id },
+    { header: "Status", get: (p) => p.status },
+    { header: "Ref", get: (p) => `\`${p.ref}\`` },
+    { header: "SHA", get: (p) => p.sha || "-" },
+    { header: "Source", get: (p) => p.source || "-" },
+    { header: "Created", get: (p) => (p.created_at ? p.created_at.split("T")[0] : "-") },
+  ]);
+}
+
+export function formatPipelineJobsMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.jobs || [];
+  return renderMarkdownTable(items, [
+    { header: "ID", get: (j) => j.id },
+    { header: "Name", get: (j) => j.name },
+    { header: "Stage", get: (j) => j.stage },
+    { header: "Status", get: (j) => j.status },
+    { header: "Duration", get: (j) => (j.duration ? `${Math.round(j.duration)}s` : "-") },
+  ]);
+}
+
+export function formatCommitsMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.commits || [];
+  const prefix = data?.pagination ? `### Commits (Page ${data.pagination.page}/${data.pagination.total_pages || 1}, Total: ${data.pagination.total})\n\n` : "";
+  return prefix + renderMarkdownTable(items, [
+    { header: "SHA", get: (c) => c.short_id || (c.id ? c.id.slice(0, 8) : "-") },
+    { header: "Author", get: (c) => c.author_name || "-" },
+    { header: "Date", get: (c) => (c.committed_date || c.authored_date || "").split("T")[0] || "-" },
+    { header: "Title", get: (c) => c.title || (c.message ? c.message.split("\n")[0] : "-") },
+  ]);
+}
+
+export function formatBranchesMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.branches || [];
+  return renderMarkdownTable(items, [
+    { header: "Branch", get: (b) => b.name },
+    { header: "Protected", get: (b) => (b.protected ? "Yes" : "No") },
+    { header: "Default", get: (b) => (b.default ? "Yes" : "No") },
+    { header: "Commit", get: (b) => (b.commit ? (b.commit.short_id || b.commit.id?.slice(0, 8)) : "-") },
+  ]);
+}
+
+export function formatMembersMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.members || [];
+  return renderMarkdownTable(items, [
+    { header: "Username", get: (m) => `@${m.username}` },
+    { header: "Name", get: (m) => m.name },
+    { header: "Role", get: (m) => m.role || "-" },
+    { header: "State", get: (m) => m.state || "-" },
+  ]);
+}
+
+export function formatVariablesMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.variables || [];
+  return renderMarkdownTable(items, [
+    { header: "Key", get: (v) => v.key },
+    { header: "Type", get: (v) => v.variable_type || "env_var" },
+    { header: "Scope", get: (v) => v.environment_scope || "*" },
+    { header: "Protected", get: (v) => (v.protected ? "Yes" : "No") },
+    { header: "Masked", get: (v) => (v.masked ? "Yes" : "No") },
+  ]);
+}
+
+export function formatMilestonesMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.milestones || [];
+  return renderMarkdownTable(items, [
+    { header: "IID", get: (m) => `#${m.iid || m.id}` },
+    { header: "Title", get: (m) => m.title },
+    { header: "State", get: (m) => m.state },
+    { header: "Due Date", get: (m) => m.due_date || "-" },
+    { header: "Expired", get: (m) => (m.expired ? "Yes" : "No") },
+  ]);
+}
+
+export function formatReleasesMarkdown(data) {
+  const items = Array.isArray(data) ? data : data?.releases || [];
+  return renderMarkdownTable(items, [
+    { header: "Tag", get: (r) => r.tag_name || r.name },
+    { header: "Name", get: (r) => r.name || "-" },
+    { header: "Author", get: (r) => (r.author ? `@${r.author}` : "-") },
+    { header: "Released", get: (r) => (r.released_at || r.created_at || "").split("T")[0] || "-" },
+    { header: "Upcoming", get: (r) => (r.upcoming_release ? "Yes" : "No") },
+  ]);
+}
+
+export function formatProjectMarkdown(p) {
+  if (!p) return "_No project data._";
+  let md = `## Project: ${p.path_with_namespace || p.name} (ID: ${p.id})\n\n`;
+  if (p.description) md += `${p.description}\n\n`;
+  md += `- **Visibility**: ${p.visibility || "internal"}\n`;
+  md += `- **Default Branch**: \`${p.default_branch || "main"}\`\n`;
+  md += `- **Web URL**: ${p.web_url || "-"}\n`;
+  if (p.ssh_url_to_repo) md += `- **SSH Clone**: \`${p.ssh_url_to_repo}\`\n`;
+  if (p.http_url_to_repo) md += `- **HTTP Clone**: \`${p.http_url_to_repo}\`\n`;
+  if (p.star_count !== undefined) {
+    md += `- **Stars**: ${p.star_count} | **Forks**: ${p.forks_count || 0}\n`;
+  }
+  return md;
+}
+
+export function formatCommitDetailsMarkdown(c) {
+  if (!c) return "_No commit data._";
+  let md = `## Commit \`${c.short_id || c.id?.slice(0, 8)}\`: ${c.title || ""}\n\n`;
+  md += `- **Author**: ${c.author_name || "-"} (${c.author_email || "-"}) on ${c.authored_date || "-"}\n`;
+  if (c.committer_name && c.committer_name !== c.author_name) {
+    md += `- **Committer**: ${c.committer_name} on ${c.committed_date || "-"}\n`;
+  }
+  if (c.web_url) md += `- **Web URL**: ${c.web_url}\n`;
+  if (c.message && c.message !== c.title) {
+    md += `\n### Message\n\n${c.message}\n`;
+  }
+  if (Array.isArray(c.files_changed) && c.files_changed.length > 0) {
+    md += `\n### Files Changed (${c.files_changed.length})\n\n`;
+    md += renderMarkdownTable(c.files_changed, [
+      { header: "File", get: (f) => f.path },
+      { header: "Status", get: (f) => f.status },
+    ]);
+  }
+  if (Array.isArray(c.diffs) && c.diffs.length > 0) {
+    md += `\n### Diffs\n\n`;
+    for (const d of c.diffs) {
+      md += `#### ${d.new_path}\n\`\`\`diff\n${d.diff}\n\`\`\`\n\n`;
+    }
+  }
+  return md;
+}
+
+const ACTION_FORMATTERS = {
+  list_issues: formatIssuesMarkdown,
+  search_issues: formatIssuesMarkdown,
+  list_merge_requests: formatMergeRequestsMarkdown,
+  list_pipelines: formatPipelinesMarkdown,
+  list_pipeline_jobs: formatPipelineJobsMarkdown,
+  list_commits: formatCommitsMarkdown,
+  list_branches: formatBranchesMarkdown,
+  list_protected_branches: formatBranchesMarkdown,
+  list_project_members: formatMembersMarkdown,
+  list_group_members: formatMembersMarkdown,
+  list_project_variables: formatVariablesMarkdown,
+  list_group_variables: formatVariablesMarkdown,
+  list_milestones: formatMilestonesMarkdown,
+  list_releases: formatReleasesMarkdown,
+  get_project: formatProjectMarkdown,
+  get_commit: formatCommitDetailsMarkdown,
+};
+
+/**
+ * Converts structured JSON/object responses into clean, compact, token-saving Markdown
+ */
+export function jsonToMarkdown(data, actionName) {
   if (data === null || data === undefined) return "";
   if (typeof data !== "object") return String(data);
 
+  // 1. Dispatch directly by actionName if registered
+  if (actionName && ACTION_FORMATTERS[actionName]) {
+    return ACTION_FORMATTERS[actionName](data);
+  }
+
+  // 2. Shape-based automatic heuristics for common payloads
+  if (data.issues && Array.isArray(data.issues)) {
+    return formatIssuesMarkdown(data);
+  }
+  if (data.merge_requests && Array.isArray(data.merge_requests)) {
+    return formatMergeRequestsMarkdown(data);
+  }
+  if (data.pipelines && Array.isArray(data.pipelines)) {
+    return formatPipelinesMarkdown(data);
+  }
+  if (data.commits && Array.isArray(data.commits)) {
+    return formatCommitsMarkdown(data);
+  }
+  if (data.path_with_namespace && data.id && data.default_branch) {
+    return formatProjectMarkdown(data);
+  }
+
+  // 3. Array of objects
   if (Array.isArray(data)) {
     if (data.length === 0) return "_No items returned._";
-    if (typeof data[0] === "object" && data[0] !== null) {
-      const keys = Array.from(new Set(data.flatMap((item) => Object.keys(item))));
-      if (keys.length <= 8) {
-        const header = `| ${keys.join(" | ")} |`;
-        const divider = `| ${keys.map(() => ":---").join(" | ")} |`;
-        const rows = data.map((item) =>
-          `| ${keys
-            .map((k) => {
-              const v = item[k];
-              if (v === null || v === undefined) return "";
-              if (typeof v === "object") return "`" + JSON.stringify(v) + "`";
-              return String(v).replace(/\|/g, "\\|").replace(/\n/g, " ");
-            })
-            .join(" | ")} |`
+    const first = data[0];
+    if (typeof first === "object" && first !== null) {
+      // Heuristic detection on first item
+      if (first.iid && first.title && !first.source_branch) {
+        return formatIssuesMarkdown(data);
+      }
+      if (first.source_branch && first.target_branch) {
+        return formatMergeRequestsMarkdown(data);
+      }
+      if (first.status && first.ref && first.sha) {
+        return formatPipelinesMarkdown(data);
+      }
+      if (first.short_id && first.title) {
+        return formatCommitsMarkdown(data);
+      }
+      if (first.name && first.protected !== undefined) {
+        return formatBranchesMarkdown(data);
+      }
+      if (first.username && first.role) {
+        return formatMembersMarkdown(data);
+      }
+
+      // General table formatting with prioritized column selection
+      const allKeys = Array.from(new Set(data.flatMap((item) => Object.keys(item))));
+      const priorityKeys = ["id", "iid", "number", "name", "title", "key", "state", "status", "type", "ref", "role", "author", "created_at", "value"];
+      const sortedKeys = [
+        ...priorityKeys.filter((k) => allKeys.includes(k)),
+        ...allKeys.filter((k) => !priorityKeys.includes(k)),
+      ];
+      // Pick top 6 columns that are not large objects or bodies
+      const selectedKeys = sortedKeys.filter((k) => !["description", "body", "diff", "content", "decoded_content"].includes(k)).slice(0, 6);
+
+      if (selectedKeys.length > 0) {
+        return renderMarkdownTable(
+          data,
+          selectedKeys.map((k) => ({
+            header: k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " "),
+            get: (item) => {
+              const val = item[k];
+              if (val === null || val === undefined) return "-";
+              if (typeof val === "object") return Array.isArray(val) ? val.join(", ") : JSON.stringify(val);
+              return String(val);
+            },
+          }))
         );
-        return [header, divider, ...rows].join("\n");
       }
     }
     return data
-      .map((item) => `- ${typeof item === "object" ? JSON.stringify(item) : item}`)
+      .map((item) => {
+        if (typeof item === "object" && item !== null) {
+          const label = item.name || item.title || item.key || item.id || "Item";
+          const desc = item.status || item.state || item.description || "";
+          return `- **${label}**${desc ? `: ${desc}` : ""}`;
+        }
+        return `- ${item}`;
+      })
       .join("\n");
   }
 
+  // 4. Single structured object
   const lines = [];
   for (const [k, v] of Object.entries(data)) {
     if (v === null || v === undefined) continue;
     if (Array.isArray(v)) {
-      lines.push(`### ${k}\n\n` + jsonToMarkdown(v));
+      lines.push(`### ${k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " ")}\n\n` + jsonToMarkdown(v));
     } else if (typeof v === "object") {
       lines.push(`**${k}**:`);
       for (const [subK, subV] of Object.entries(v)) {
@@ -444,6 +723,101 @@ export function jsonToMarkdown(data) {
     }
   }
   return lines.join("\n");
+}
+
+/**
+ * Strips ANSI terminal color and control escape sequences.
+ */
+export function stripAnsi(text) {
+  if (!text) return "";
+  return text.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, "");
+}
+
+/**
+ * Intelligent CI log extractor: strips ANSI, scans for failure blocks,
+ * and extracts the root cause rather than only blind tail lines.
+ */
+export function extractSmartJobLog(rawLog, { tail_lines = 100, strip_ansi = true, smart_failure = true } = {}) {
+  if (!rawLog) return "";
+  let text = strip_ansi ? stripAnsi(rawLog) : rawLog;
+  const lines = text.split(/\r?\n/);
+  if (lines.length <= tail_lines) {
+    return lines.join("\n");
+  }
+
+  if (smart_failure) {
+    const failureRegex = /(error:|fatal:|panic:|FAIL:|AssertionError|FAILED|Process completed with exit code [1-9]|exit status [1-9]|npm ERR!|BUILD FAILED|Traceback \(most recent call last\):)/i;
+    let matchIdx = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (failureRegex.test(lines[i])) {
+        matchIdx = i;
+        break;
+      }
+    }
+
+    if (matchIdx !== -1) {
+      const start = Math.max(0, matchIdx - 15);
+      const end = Math.min(lines.length, matchIdx + 60);
+      const failureBlock = lines.slice(start, end).join("\n");
+      const tailStart = Math.max(end, lines.length - 25);
+      const tailBlock = lines.slice(tailStart).join("\n");
+
+      let result = `[... Truncated first ${start} lines ...]\n=== DETECTED FAILURE BLOCK (around line ${matchIdx + 1}) ===\n${failureBlock}`;
+      if (tailStart > end) {
+        result += `\n\n[... Truncated ${tailStart - end} intermediate lines ...]\n=== JOB TEARDOWN TAIL ===\n${tailBlock}`;
+      }
+      return result;
+    }
+  }
+
+  return `[... Truncated first ${lines.length - tail_lines} lines ...]\n` + lines.slice(-tail_lines).join("\n");
+}
+
+/**
+ * Universal Regex Symbol Extractor for code files (JS/TS, Python, Go, Rust, Ruby, Java, C#).
+ * Returns symbol signatures with 1-based line numbers to allow outline-first file inspection.
+ */
+export function extractSymbolOutline(content, filename = "") {
+  if (!content) return "";
+  const lines = content.split(/\r?\n/);
+  const symbols = [];
+
+  const patterns = [
+    /^\s*(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s*([a-zA-Z0-9_$]+)/,
+    /^\s*(?:export\s+(?:default\s+)?)?class\s+([a-zA-Z0-9_$]+)/,
+    /^\s*(?:export\s+)?(?:interface|type|enum)\s+([a-zA-Z0-9_$]+)/,
+    /^\s*(?:export\s+)?(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[a-zA-Z0-9_$]+)\s*=>/,
+    /^\s*(?:async\s+)?def\s+([a-zA-Z0-9_]+)\s*\(/,
+    /^\s*class\s+([a-zA-Z0-9_]+)(?:\s*\(|\s*:)/,
+    /^\s*func\s+(?:\([^)]+\)\s+)?([a-zA-Z0-9_]+)\s*\(/,
+    /^\s*type\s+([a-zA-Z0-9_]+)\s+(?:struct|interface)/,
+    /^\s*(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?(?:fn|struct|enum|trait|type)\s+([a-zA-Z0-9_]+)/,
+    /^\s*impl(?:\s+<[^>]+>)?\s+([a-zA-Z0-9_]+)/,
+    /^\s*(?:def|class|module)\s+([a-zA-Z0-9_:]+)/,
+  ];
+
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
+      continue;
+    }
+
+    for (const pat of patterns) {
+      if (pat.test(line)) {
+        const indentLevel = line.search(/\S/);
+        const indentStr = " ".repeat(Math.min(indentLevel, 8));
+        symbols.push(`L${idx + 1}:${indentStr} ${trimmed.replace(/\{$/, "").trim()}`);
+        break;
+      }
+    }
+  }
+
+  if (symbols.length === 0) {
+    return `[No top-level function, class, or type declarations detected in ${filename || "file"}. Total lines: ${lines.length}]`;
+  }
+
+  return `=== SYMBOL OUTLINE (${symbols.length} declarations across ${lines.length} lines) ===\n` + symbols.join("\n");
 }
 
 

@@ -19,7 +19,7 @@ export const ListMyGroupsSchema = z.object({
   owned: z.boolean().optional().describe("If true, limits to groups explicitly owned by the current user"),
   min_access_level: z.enum(["guest", "reporter", "developer", "maintainer", "owner"]).optional().describe("Minimum access level in the group"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of groups per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of groups per page (default: 10, max: 100)"),
 });
 
 export const CreateGroupSchema = z.object({
@@ -41,7 +41,7 @@ export const ListGroupProjectsSchema = z.object({
   search: z.string().optional().describe("Search query within group projects"),
   visibility: z.enum(["private", "internal", "public"]).optional().describe("Filter by project visibility"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of projects per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of projects per page (default: 10, max: 100)"),
 });
 
 export const ListMyProjectsSchema = z.object({
@@ -54,7 +54,7 @@ export const ListMyProjectsSchema = z.object({
   order_by: z.enum(["id", "name", "path", "created_at", "updated_at", "last_activity_at"]).optional().default("last_activity_at"),
   sort: z.enum(["asc", "desc"]).optional().default("desc"),
   page: z.number().optional().default(1),
-  per_page: z.number().optional().default(20),
+  per_page: z.number().optional().default(10),
 });
 
 // Tool Definitions

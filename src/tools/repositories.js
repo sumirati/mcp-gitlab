@@ -2,18 +2,19 @@ import { z } from "zod";
 import { zodToJsonSchema } from "../schemas.js";
 import { gitlabRequest, formatProjectId } from "../client.js";
 import { ProjectParamsSchema } from "../schemas.js";
-import { summarizeProject, resolveNamespaceId, summarizeCommit } from "../helpers.js";
+import { summarizeProject, resolveNamespaceId, summarizeCommit, extractSymbolOutline } from "../helpers.js";
 
 // Schemas
 export const SearchRepositoriesSchema = z.object({
   search: z.string().optional().describe("Search query to filter project names/descriptions (e.g. 'my-service')"),
   group: z.union([z.string(), z.number()]).optional().describe("Optional group ID or path (e.g. 'buggycode' or 3) to filter repositories strictly within that group"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().min(1).max(100).optional().default(20).describe("Number of results per page (default: 20, max: 100)"),
+  per_page: z.number().min(1).max(100).optional().default(10).describe("Number of results per page (default: 10, max: 100)"),
 });
 
 export const GetProjectSchema = ProjectParamsSchema.extend({
   statistics: z.boolean().optional().default(false).describe("Include project repository and storage statistics"),
+  format: z.enum(["json", "markdown"]).optional().default("markdown").describe("Output format: 'markdown' (default) or 'json'"),
 });
 
 export const CreateRepositorySchema = z.object({
@@ -46,6 +47,13 @@ export const DeleteProjectSchema = ProjectParamsSchema.extend({
 export const GetFileContentsSchema = ProjectParamsSchema.extend({
   file_path: z.string().describe("Path to the file or directory in repo (e.g. 'pom.xml' or 'docs/README.md')"),
   ref: z.string().optional().describe("Branch name, tag, or commit SHA (default: default branch / HEAD)"),
+  outline_only: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("When true, extract and return only high-level symbol declarations (classes, functions, interfaces, methods, types) with their line numbers instead of full content (default: false)"),
+  start_line: z.number().optional().describe("Optional 1-based start line to slice content"),
+  end_line: z.number().optional().describe("Optional 1-based end line to slice content"),
 });
 
 export const CreateOrUpdateFileSchema = ProjectParamsSchema.extend({
@@ -58,16 +66,21 @@ export const CreateOrUpdateFileSchema = ProjectParamsSchema.extend({
 
 export const PushFilesSchema = ProjectParamsSchema.extend({
   branch: z.string().describe("Target branch to push to"),
-  commit_message: z.string().describe("Git commit message for the batch commit"),
+  commit_message: z.string().optional().describe("Git commit message for the batch commit"),
+  message: z.string().optional().describe("Alias for commit_message"),
   files: z
     .array(
       z.object({
-        file_path: z.string().describe("Destination path for the file"),
+        file_path: z.string().optional().describe("Destination path for the file relative to repository root"),
+        path: z.string().optional().describe("Alias for file_path"),
         content: z.string().describe("Full file content"),
       })
     )
+    .min(1)
     .describe("Array of files to create/update in this single commit"),
 });
+
+export const CreateCommitSchema = PushFilesSchema;
 
 export const ForkRepositorySchema = ProjectParamsSchema.extend({
   namespace: z
@@ -131,6 +144,13 @@ export const repositoryTools = [
     title: "Push Multiple Files",
     description: "Atomically commit multiple file additions, modifications, or deletions to a target branch in a single Git commit. Use for multi-file refactors, features, or project scaffolding. Side effect: creates an atomic multi-action Git commit on the remote branch. Use instead of calling 'create_or_update_file' in a loop.",
     inputSchema: zodToJsonSchema(PushFilesSchema),
+    mutating: true,
+  },
+  {
+    name: "create_commit",
+    title: "Create Multi-File Atomic Commit",
+    description: "Atomically commit multiple file additions, modifications, or updates to a target branch in a single Git commit using GitLab Commits API. Use for multi-file refactors, features, or project scaffolding without local git cloning. Side effect: creates an atomic multi-action Git commit on the remote branch.",
+    inputSchema: zodToJsonSchema(CreateCommitSchema),
     mutating: true,
   },
   {
@@ -241,6 +261,19 @@ export const repositoryHandlers = {
     const res = await gitlabRequest(`/projects/${pId}/repository/files/${encodedPath}${ref}`);
     if (res.content && res.encoding === "base64") {
       res.decoded_content = Buffer.from(res.content, "base64").toString("utf-8");
+
+      if (parsed.outline_only) {
+        res.outline = extractSymbolOutline(res.decoded_content, parsed.file_path);
+        delete res.content;
+        delete res.decoded_content;
+      } else if (parsed.start_line || parsed.end_line) {
+        const lines = res.decoded_content.split(/\r?\n/);
+        const start = Math.max(1, parsed.start_line || 1);
+        const end = Math.min(lines.length, parsed.end_line || lines.length);
+        res.decoded_content = lines.slice(start - 1, end).join("\n");
+        res.sliced_lines = `${start}-${end} of ${lines.length}`;
+        delete res.content;
+      }
     }
     return res;
   },
@@ -279,9 +312,19 @@ export const repositoryHandlers = {
   push_files: async (args) => {
     const parsed = PushFilesSchema.parse(args);
     const pId = formatProjectId(parsed.project_id);
+    const commitMsg = parsed.commit_message || parsed.message;
+    if (!commitMsg || !commitMsg.trim()) {
+      throw new Error("Commit message is required (pass 'commit_message' or 'message')");
+    }
+
     const actions = await Promise.all(
-      parsed.files.map(async (file) => {
-        const encodedPath = encodeURIComponent(file.file_path);
+      parsed.files.map(async (file, idx) => {
+        const filePath = file.file_path || file.path;
+        if (!filePath || !filePath.trim()) {
+          throw new Error(`File at index ${idx} is missing 'file_path' or 'path'`);
+        }
+        const cleanPath = filePath.trim().replace(/^\/+/, "");
+        const encodedPath = encodeURIComponent(cleanPath);
         let action = "create";
         try {
           await gitlabRequest(`/projects/${pId}/repository/files/${encodedPath}?ref=${encodeURIComponent(parsed.branch)}`);
@@ -291,7 +334,7 @@ export const repositoryHandlers = {
         }
         return {
           action,
-          file_path: file.file_path,
+          file_path: cleanPath,
           content: file.content,
         };
       })
@@ -301,11 +344,15 @@ export const repositoryHandlers = {
       method: "POST",
       body: JSON.stringify({
         branch: parsed.branch,
-        commit_message: parsed.commit_message,
+        commit_message: commitMsg,
         actions,
       }),
     });
     return summarizeCommit(res);
+  },
+
+  create_commit: async (args) => {
+    return repositoryHandlers.push_files(args);
   },
 
   fork_repository: async (args) => {

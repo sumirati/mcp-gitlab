@@ -9,7 +9,7 @@ export const ListProjectMembersSchema = ProjectParamsSchema.extend({
   query: z.string().optional().describe("Filter members by username or name"),
   include_inherited: z.boolean().optional().default(true).describe("Include members inherited from parent groups (default: true)"),
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().optional().default(20).describe("Number of members per page (default: 20, max: 100)"),
+  per_page: z.number().optional().default(10).describe("Number of members per page (default: 10, max: 100)"),
 });
 
 export const GetProjectMemberSchema = ProjectParamsSchema.extend({

@@ -7,7 +7,7 @@ import { summarizeVariable } from "../helpers.js";
 // Schemas
 export const ListProjectVariablesSchema = ProjectParamsSchema.extend({
   page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-  per_page: z.number().optional().default(50).describe("Number of variables per page (default: 50, max: 100)"),
+  per_page: z.number().optional().default(10).describe("Number of variables per page (default: 10, max: 100)"),
 });
 
 export const GetProjectVariableSchema = ProjectParamsSchema.extend({
